@@ -11,31 +11,18 @@
 *   The architecture of the net in a train_val.prototxt file (without weights and activations)
 *   The architecture of the net in a trace_params.csv file (without weights and activations)
 *   The architecture of the net in a conv_params.csv file (without weights and activations)
-*   Weights, Bias, Inputs and outputs activations in a *.npy file using the following format
+*   Weights and Inputs activations in a *.npy file using the following format
 *   Full network in a Google protobuf format file
 *   Tactical schedule in a protobuf format file
-
-### Installation in the aenao cluster
-Must use 10.0.0.136 machine (It has protobuf and a newer version of gcc installed). First allow access to internet:
-
-    ssh -D 12345 <username>@10.0.0.254 -Nf
-    
-Then, clone the repository using proxychains:
-
-    proxychains4 git clone https://github.com/Isakon12/DNNsim
-    
-Finally, allow access to gcc-7 in CentOS (not necessary to run simulations):
-
-    scl enable devtoolset-7 bash
 
 ### Compilation:
 Command line compilation. First we need to configure the project:
     
-    cmake3 -H. -Bcmake-build-release -DCMAKE_BUILD_TYPE=Release
+    cmake -H. -Bcmake-build-release -DCMAKE_BUILD_TYPE=Release
 
 Then, we can proceed to build the project
 
-    cmake3 --build cmake-build-release/ --target all
+    cmake --build cmake-build-release/ --target all
 
 ### Set up directories
 
@@ -52,7 +39,7 @@ Create folder **models** including a folder for each network. Every network must
         *   If this file does not exist the precisions are 13:2 for activations and 0:15 for weights
    
    ```
-   magnitude (+1 of the sign), fraction, wgt_magnitude, wgt_fraction
+   magnitude (including sign), fraction, wgt_magnitude, wgt_fraction
    9;9;8;9;9;8;6;4;
    -1;-2;-3;-3;-3;-3;-1;0;
    2;1;1;1;1;-3;-4;-1;
@@ -63,19 +50,12 @@ Create folder **net_traces** including a folder for each network.
 In the case of **inference** simulation, every network must include:
    * wgt-$LAYER.npy
    * act-$LAYER-$BATCH.npy
-
-In the case of **training** simulation, every network must include in subdirectories:
-   * weights/$LAYER-$EPOCH-$BATCH-w.npy
-   * input/$LAYER-$EPOCH-$BATCH-in.npy
-   * outGrad/$LAYER-$EPOCH-$BATCH-wGrad.npy
-   * outGrad/$LAYER-$EPOCH-$BATCH-inGrad.npy
-   * outGrad/$LAYER-$EPOCH-$BATCH-wGrad.npy
        
 ### Test
 
 Print help:
 
-    ./cmake-build-release/bin/DNNsim -h
+    ./DNNsim -h
     
 The simulator instructions are defined in prototxt files. Example files can be found [here](examples/README.md).
 
@@ -92,7 +72,7 @@ parallelized per batch using OpenMP library
 * Option **--fast_mode** makes the simulation execute only one batch per network, the first one.
 * Option **--store_fixed_point_protobuf** store the fixed point network in a intermediate Protobuf file.
 
-### Allowed Inference simulations
+### Allowed simulations
 
 *  Allowed model types for the simulations:
 
@@ -116,8 +96,6 @@ parallelized per batch using OpenMP library
 | BitTacticalP | **W + Ap**: Skips zero weights and exploits precision requirements of activations | 
 | BitTacticalE | **W + Ae**: Skips zero weights and exploits bit-level sparsity of activations | 
 | SCNN | **W + A**: Skips zero weights and zero activations |
-| SCNNp | **W + A + Ap**: Skips zero weights, zero activations, and exploits precision requirements of activations |
-| SCNNe | **W + A + Ae**: Skips zero weights, zero activations, and exploits bit-level sparsity of activations |
 | BitFusion | **Wp + Ap**: Exploits precision requirements of activations and weights for powers of two |
 
 Input parameters are the parameters that can be changed for each architecture in the prototxt batch file.
@@ -135,8 +113,6 @@ Float32 for 4bytes floating point, and Fixed16 for 2bytes quantized integer
 | BitTacticalP | N_COLUMNS, N_ROWS, LOOKAHEAD_H, LOOKASIDE_D, SEARCH_SHAPE, PRECISION_GRANULARITY, COLUMN_REGISTERS, LEADING_BIT, MINOR_BIT | ZERO_COUNT, FC_MULTIPLEX_COLUMNS, WEIGHT_LANES | Fixed16 |
 | BitTacticalE | N_COLUMNS, N_ROWS, LOOKAHEAD_H, LOOKASIDE_D, SEARCH_SHAPE, BITS_FIRST_STAGE, COLUMN_REGISTERS | BOOTH_ENCODING, ZERO_COUNT, FC_MULTIPLEX_COLUMNS, WEIGHT_LANES | Fixed16 |
 | SCNN | Wt, Ht, I, F, out_acc_size, BANKS | ZERO_COUNT | Fixed16, Float32 |
-| SCNNp | Wt, Ht, I, F, out_acc_size, BANKS, PE_SERIAL_BITS | ZERO_COUNT | Fixed16 |
-| SCNNe | Wt, Ht, I, F, out_acc_size, BANKS, PE_SERIAL_BITS | BOOTH_ENCODING, ZERO_COUNT | Fixed16 |
 | BitFusion | M, N, PMAX, PMIN | - | Fixed16 |
 
 *\*Default features can be removed in their specific header file*
@@ -148,7 +124,6 @@ Float32 for 4bytes floating point, and Fixed16 for 2bytes quantized integer
 | Cycles | Simulate number of cycles and memory accesses | 
 | Potentials | Calculate ideal speedup and work reduction | 
 | Schedule | Schedule weights statically (Only for BitTactical architecture) |
-| AvgWidth | Calculate average effective width for the activations and weights per group (Only for DynamicStripes architecture) |
 
 * Allowed task for the special architecture "None":
 
@@ -157,48 +132,6 @@ Float32 for 4bytes floating point, and Fixed16 for 2bytes quantized integer
 | Sparsity | Calculate sparsity for actiations and weights, number of zero values | Fixed16, Float32 |
 | BitSparsity | Calculate bit sparsity for activations and weights, number of zero bits | Fixed16 |
 
-### Allowed Training simulations
-
-*  Allowed input types for the simulations:
-
-| inputType | Description | 
-|:---:|:---:|
-| Trace | Load network model from *trace_params.csv*, precisions from *precision.txt*, and traces from numpy arrays | 
-
-*  Allowed architectures:
-
-| Architecture | Description | 
-|:---:|:---:|
-| None | Special generic architecture |
-| DynamicStripesFP | **Ap**: Exploits dynamic precision requirements of a group of activations | 
-
-Input parameters are the parameters that can be changed for each architecture in the prototxt batch file.
-Default parameters are defined in the header of each architecture, they can be changed in the specific file. 
-Data type indicates the possible data types allowed: Float32 for 4bytes floating point, and BFloat16 for 2bytes 
-truncated floating point   
-
-| Architecture | Input Parameters | Default Parameters\* | Data type |
-|:---:|:---:|:---:|:---:|
-| DynamicStripesFP | LEADING_BIT, MINOR_BIT, EXPONENT | - | BFloat16 |
-
-*\*Default features can be removed in their specific header file*
-
-*  Allowed tasks for these architectures:
-
-| Task | Description | 
-|:---:|:---:|
-| AvgWidth | Calculate average effective width for the activations and weights per group (Only for DynamicStripes architecture) |
-
-* Allowed task for the special architecture "None":
-
-| Task | Description | Data type |
-|:---:|:---:|:---:|
-| Sparsity | Calculate sparsity for forward and backward, number of zero values | BFloat16 |
-| ExpBitSparsity | Calculate the bit-sparsity only for the exponent, number of zero bits | BFloat16 |
-| MantBitSparsity | Calculate sparsity only for the mantissa, number of zero bits | BFloat16 |
-| ExpDistr | Print exponent data distribution for forward and backward | BFloat16 |
-| MantDistr | Print mantissa data distribution for forward and backward | BFloat16 |
-
 ### Default Parameters Description   
 
 | Name | Data Type | Description | Valid Options | Default |
@@ -206,7 +139,7 @@ truncated floating point
 | BOOTH_ENCODING | bool | Activate booth encoding | True-False | True |
 | ZERO_COUNT | bool | Zero values count as one cycle | True-False | True | 
 | FC_MULTIPLEX_COLUMNS | bool | Fully connected layers are time-multiplexed in the columns | True-False | True |
-| WEIGHT_LANES | uint32 | Number of weights per PE | Float32-Fixed16 | 16 |
+| WEIGHT_LANES | uint32 | Number of weights per PE | Positive Numbers | 16 |
    
 ### Input Parameters Description   
 
@@ -216,15 +149,10 @@ The batch file can be constructed as follows for the simulation tool:
 |:---:|:---:|:---:|:---:|:---:|
 | network | string | Name of the network as in the folder models | Valid path | N/A |
 | batch | uint32 | Corresponding batch for the Numpy traces | Positive numbers | 0 | 
-| epoch | uint32 | Number of epochs in the Numpy traces | Positive numbers | 1 | 
 | inputType | string | Format of the input model definition and traces | Trace-Caffe-CParams-Protobuf-Gzip | N/A |
 | inputDataType | string | Data type of the input traces | Float32-Fixed16-BFloat16 | N/A |
 | network_bits | uint32 | Number of baseline bits of the network | Positive Number | 16 |
 | tensorflow_8b | bool | Use tensorflow 8bits quantization | True-False | False |
-| training | bool | Change mode to training simulations | True-False | False |
-| only_forward | bool | Only forward traces in the training simulations | True-False | False |
-| only_backward | bool | Only backward traces in the training simulations | True-False | False |
-| decoder_states | uint32 | Number of decoder traces for Seq2Seq simulations in training | Positive numbers | 0 (Not Seq2Seq) |
 
 Experiments for the simulation tool can contain the following parameters.
 
@@ -276,7 +204,6 @@ Experiments for the simulation tool can contain the following parameters.
     *   Inference: class that defines the behaviour of a standard deep learning inference simulation
     *   Stripes: class for the Stripes accelerator
     *   DynamicStripes: class for the Dynamic-Stripes accelerator
-    *   DynamicStripesFP: class for the floating point Dynamic-Stripes training accelerator
     *   Loom: class for the Loom accelerator
     *   BitPragmatic: class for the Bit-Pragmatic accelerator
     *   Laconic: class for the Laconic accelerator
@@ -284,8 +211,6 @@ Experiments for the simulation tool can contain the following parameters.
     *   BitTacticalP: class for the Bit-Tactical version p accelerator
     *   BitTacticalE: class for the Bit-Tactical version e accelerator
     *   SCNN: class for the SCNN accelerator and common behaviour for SCNN-like architectures
-    *   SCNNp: class for the SCNNe accelerator
-    *   SCNNe: class for the SCNNp accelerator
     *   BitFusion: class for the BitFusion accelerator
 *   **interface**: Folder to interface with input/output operations
     *   Interface: common class for the reader and writer classes
@@ -297,6 +222,4 @@ Experiments for the simulation tool can contain the following parameters.
     *   caffe.proto: Caffe protobuf definition for Caffe networks
     *   batch.proto: Google protobuf definition for the batch file
     *   schedule.proto: Tactical schedule protobuf definition
-*   **scripts**: Folder for supporting python scripts
-    *   save_net.py: Create traces for the networks given the models
     

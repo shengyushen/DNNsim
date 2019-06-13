@@ -12,81 +12,13 @@ namespace sys {
         return success;
     }
 
-    Batch::Simulate Batch::read_training_simulation(const protobuf::Batch_Simulate &simulate_proto) {
-        Batch::Simulate simulate;
-        std::string value;
-        simulate.network = simulate_proto.network();
-        simulate.batch = simulate_proto.batch();
-        simulate.epochs = simulate_proto.epochs() < 1 ? 1 : simulate_proto.epochs();
-        simulate.tensorflow_8b = simulate_proto.tensorflow_8b();
-        simulate.network_bits = simulate_proto.network_bits() < 1 ? 16 : simulate_proto.network_bits();
-		simulate.training = simulate_proto.training();
-        simulate.only_forward = simulate_proto.only_forward();
-        simulate.only_backward = simulate_proto.only_backward();
-        simulate.decoder_states = simulate_proto.decoder_states();
-        if(simulate.tensorflow_8b) simulate.network_bits = 8;
-
-        value = simulate_proto.model();
-        if(value != "Trace")
-            throw std::runtime_error("Training input type configuration for network " + simulate.network +
-                                     " must be <Trace>.");
-        else
-            simulate.model = simulate_proto.model();
-
-        if(simulate_proto.data_type() != "BFloat16")
-            throw std::runtime_error("Training input data type configuration for network " + simulate.network +
-                                     " must be <BFloat16>.");
-        else
-            simulate.data_type = simulate_proto.data_type();
-
-        if (simulate.data_type == "BFloat16") {
-            for(const auto &experiment_proto : simulate_proto.experiment()) {
-
-                Batch::Simulate::Experiment experiment;
-                if(experiment_proto.architecture() == "None") {
-
-                    value = experiment_proto.task();
-                    if(value != "Sparsity" && value != "ExpBitSparsity" && value != "MantBitSparsity" &&
-                            value != "ExpDistr" && value != "MantDistr")
-                        throw std::runtime_error("Training task for network " + simulate.network + " in BFloat16 for"
-                                                 " architecture None must be <Sparsity|ExpBitSparsity|MantBitSparsity|"
-                                                 "ExpDistr|MantDistr>.");
-
-                } else if(experiment_proto.architecture() == "DynamicStripesFP") {
-                    experiment.leading_bit = experiment_proto.leading_bit();
-                    experiment.minor_bit = experiment_proto.minor_bit();
-
-                } else throw std::runtime_error("Training architecture for network " + simulate.network +
-                                                " in BFloat16 must be <DynamicStripesFP>.");
-
-                value = experiment_proto.task();
-                if(experiment_proto.architecture() != "None" and value != "AvgWidth")
-                    throw std::runtime_error("Training task for network " + simulate.network +
-                                             " in BFloat16 must be <AvgWidth>.");
-
-                if(experiment_proto.architecture() != "DynamicStripesFP" && experiment_proto.task() == "AvgWidth")
-                    throw std::runtime_error("Training task \"AvgWidth\" for network " + simulate.network +
-                                             " in BFloat16 is only allowed for DynamicStripesFP.");
-
-                experiment.architecture = experiment_proto.architecture();
-                experiment.task = experiment_proto.task();
-                simulate.experiments.emplace_back(experiment);
-
-            }
-        }
-
-        return simulate;
-    }
-
     Batch::Simulate Batch::read_inference_simulation(const protobuf::Batch_Simulate &simulate_proto) {
         Batch::Simulate simulate;
         std::string value;
         simulate.network = simulate_proto.network();
         simulate.batch = simulate_proto.batch();
-        simulate.epochs = simulate_proto.epochs() < 1 ? 1 : simulate_proto.epochs();
         simulate.tensorflow_8b = simulate_proto.tensorflow_8b();
         simulate.network_bits = simulate_proto.network_bits() < 1 ? 16 : simulate_proto.network_bits();
-		simulate.training = simulate_proto.training();
         if(simulate.tensorflow_8b) simulate.network_bits = 8;
 
         value = simulate_proto.model();
@@ -216,34 +148,6 @@ namespace sys {
                         throw std::runtime_error("Banks for SCNN in network " + simulate.network +
                                                  " must be from 1 to 32");
 
-                } else if (experiment_proto.architecture() == "SCNNp") {
-                    experiment.Wt = experiment_proto.wt() < 1 ? 32 : experiment_proto.wt();
-                    experiment.Ht = experiment_proto.ht() < 1 ? 32 : experiment_proto.ht();
-                    experiment.I = experiment_proto.i() < 1 ? 4 : experiment_proto.i();
-                    experiment.F = experiment_proto.f() < 1 ? 4 : experiment_proto.f();
-                    experiment.out_acc_size = experiment_proto.out_acc_size() < 1 ?
-                            1024 : experiment_proto.out_acc_size();
-                    experiment.banks = experiment_proto.banks() < 1 ? 32 : experiment_proto.banks();
-                    experiment.pe_serial_bits = experiment_proto.pe_serial_bits() < 1 ? 1 :
-                            experiment_proto.pe_serial_bits();
-                    if(experiment.banks > 32)
-                        throw std::runtime_error("Banks for SCNN in network " + simulate.network +
-                                                 " must be from 1 to 32");
-
-                } else if (experiment_proto.architecture() == "SCNNe") {
-                    experiment.Wt = experiment_proto.wt() < 1 ? 32 : experiment_proto.wt();
-                    experiment.Ht = experiment_proto.ht() < 1 ? 32 : experiment_proto.ht();
-                    experiment.I = experiment_proto.i() < 1 ? 4 : experiment_proto.i();
-                    experiment.F = experiment_proto.f() < 1 ? 4 : experiment_proto.f();
-                    experiment.out_acc_size = experiment_proto.out_acc_size() < 1 ?
-                            1024 : experiment_proto.out_acc_size();
-                    experiment.banks = experiment_proto.banks() < 1 ? 32 : experiment_proto.banks();
-                    experiment.pe_serial_bits = experiment_proto.pe_serial_bits() < 1 ? 1 :
-                            experiment_proto.pe_serial_bits();
-                    if(experiment.banks > 32)
-                        throw std::runtime_error("Banks for SCNN in network " + simulate.network +
-                                                 " must be from 1 to 32");
-
                 } else if(experiment_proto.architecture() == "BitFusion") {
                     experiment.M = experiment_proto.m() < 1 ? 32 : experiment_proto.m();
                     experiment.N = experiment_proto.n() < 1 ? 16 : experiment_proto.n();
@@ -255,22 +159,18 @@ namespace sys {
 
                 } else throw std::runtime_error("Architecture for network " + simulate.network +
                                                 " in Fixed16 must be <BitPragmatic|Stripes|DynamicStripes|Laconic|"
-                                                "BitTacticalP|BitTacticalE|SCNN|SCNNp|SCNNe|BitFusion>.");
+                                                "BitTacticalP|BitTacticalE|SCNN|BitFusion>.");
 
                 value = experiment_proto.task();
                 if(experiment_proto.architecture() != "None" && value  != "Cycles" && value != "Potentials" &&
-                        value != "Schedule" && value != "AvgWidth")
+                        value != "Schedule")
                     throw std::runtime_error("Task for network " + simulate.network +
-                                             " in Fixed16 must be <Cycles|Potentials|Schedule|AvgWidth>.");
+                                             " in Fixed16 must be <Cycles|Potentials|Schedule>.");
 
                 if(experiment_proto.architecture() != "BitTacticalE" && experiment_proto.architecture()
                         != "BitTacticalP" && experiment_proto.task() == "Schedule")
                     throw std::runtime_error("Task \"Schedule\" for network " + simulate.network +
                                              " in Fixed16 is only allowed for BitTactialP and BitTacticalE.");
-
-                if(experiment_proto.architecture() != "DynamicStripes" && experiment_proto.task() == "AvgWidth")
-                    throw std::runtime_error("Task \"AvgWidth\" for network " + simulate.network +
-                                             " in Fixed16 is only allowed for DynamicStripes.");
 
                 experiment.architecture = experiment_proto.architecture();
                 experiment.task = experiment_proto.task();
@@ -329,8 +229,7 @@ namespace sys {
 
         for(const auto &simulate : batch.simulate()) {
             try {
-                this->simulations.emplace_back(simulate.training() ? 
-					read_training_simulation(simulate) : read_inference_simulation(simulate));
+                this->simulations.emplace_back(read_inference_simulation(simulate));
             } catch (std::exception &exception) {
                 std::cerr << "Prototxt simulation error: " << exception.what() << std::endl;
                 #ifdef STOP_AFTER_ERROR

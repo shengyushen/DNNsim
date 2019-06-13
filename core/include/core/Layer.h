@@ -59,15 +59,6 @@ namespace core {
         /* numpy array containing the activations for the layer */
         cnpy::Array<T> activations;
 
-        /* numpy array containing the weight gradients for the layer */
-        cnpy::Array<T> weight_gradients;
-
-        /* numpy array containing the activation gradients for the layer */
-        cnpy::Array<T> input_gradients;
-
-        /* numpy array containing the output activation gradients for the layer */
-        cnpy::Array<T> output_gradients;
-
     public:
 
         /* Constructor
@@ -128,17 +119,10 @@ namespace core {
         int getWgtFraction() const { return wgt_fraction; }
         const cnpy::Array<T> &getWeights() const { return weights; }
         const cnpy::Array<T> &getActivations() const { return activations; }
-        const cnpy::Array<T> &getWeightGradients() const { return weight_gradients; }
-        const cnpy::Array<T> &getInputGradients() const { return input_gradients; }
-        const cnpy::Array<T> &getOutputGradients() const { return output_gradients; }
 
         /* Setters */
-        void setName(const std::string &name) { Layer::name = name; }
         void setWeights(const cnpy::Array<T> &weights) { Layer::weights = weights; }
         void setActivations(const cnpy::Array<T> &activations) { Layer::activations = activations; }
-        void setWeightGradients(const cnpy::Array<T> &weight_gradients) { Layer::weight_gradients = weight_gradients; }
-        void setInputGradients(const cnpy::Array<T> &input_gradients) { Layer::input_gradients = input_gradients; }
-        void setOutputGradients(const cnpy::Array<T> &output_gradients) { Layer::output_gradients = output_gradients; }
         void setAct_precision(int act_precision, int act_magnitude, int act_fraction) {
             Layer::act_precision = act_precision;
             Layer::act_magnitude = act_magnitude;

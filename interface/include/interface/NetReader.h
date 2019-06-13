@@ -15,16 +15,13 @@ namespace interface {
     private:
 
         /* Layers we want to load in the model */
-        const std::set<std::string> allowed_layers = {"Convolution","InnerProduct","LSTM","Encoder","Decoder"};
+        const std::set<std::string> allowed_layers = {"Convolution","InnerProduct","LSTM"};
 
         /* Name of the network */
         std::string name;
 
         /* Numpy activations batch to read from */
         int batch;
-
-        /* Numpy activations epoch to read from */
-        int epoch;
 
         /* Return the layer parsed from the caffe prototxt file
          * @param layer_caffe   prototxt layer
@@ -41,11 +38,9 @@ namespace interface {
         /* Constructor
          * @param _name     The name of the network
          * @param _batch    Numpy batch of the activations
-         * @param _epoch    Numpy epoch of the training traces
          * @param _QUIET    Remove stdout messages
          */
-        NetReader(const std::string &_name, int _batch, int _epoch, bool _QUIET) : Interface(_QUIET), batch(_batch),
-                epoch(_epoch) {
+        NetReader(const std::string &_name, int _batch, bool _QUIET) : Interface(_QUIET), batch(_batch) {
             this->name = _name;
         }
 
@@ -83,31 +78,6 @@ namespace interface {
          * @param network       Network with the layers already initialized
          */
         void read_activations_npy(core::Network<T> &network);
-
-        /* Read the weights from training traces into given network
-         * @param network       Network with the layers already initialized
-         */
-        void read_training_weights_npy(core::Network<T> &network);
-
-        /* Read the activations from training traces into given network
-         * @param network           Network with the layers already initialized
-         */
-        void read_training_activations_npy(core::Network<T> &network);
-
-        /* Read the weight gradients from training traces into given network
-         * @param network       Network with the layers already initialized
-         */
-        void read_training_weight_gradients_npy(core::Network<T> &network);
-
-        /* Read the activation gradients from training traces into given network
-         * @param network       Network with the layers already initialized
-         */
-        void read_training_input_gradients_npy(core::Network<T> &network);
-
-        /* Read the output activation gradients from training traces into given network
-         * @param network       Network with the layers already initialized
-         */
-        void read_training_output_activation_gradients_npy(core::Network<T> &network);
 
         /* Read the precision for each layer
          * @param network       Network with the layers already initialized
