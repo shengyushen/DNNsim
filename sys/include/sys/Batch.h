@@ -47,16 +47,11 @@ namespace sys {
             };
 
             int batch = 0;
-            int epochs = 0;
             std::string model = "";
             std::string data_type = "";
             std::string network = "";
             int network_bits = 0;
             bool tensorflow_8b = false;
-            bool training = false;
-            bool only_forward = false;
-            bool only_backward = false;
-            int decoder_states = 0;
             std::vector<Experiment> experiments;
         };
 
@@ -67,11 +62,6 @@ namespace sys {
 
         /* Simulations */
         std::vector<Simulate> simulations;
-
-        /* Return the training simulation parsed from the prototxt file
-         * @param simulate_proto   prototxt simulation
-         */
-        Simulate read_training_simulation(const protobuf::Batch_Simulate &simulate_proto);
 
         /* Return the inference simulation parsed from the prototxt file
          * @param simulate_proto   prototxt simulation
@@ -94,6 +84,5 @@ namespace sys {
     };
 
 }
-
 
 #endif //DNNSIM_BATCH_H

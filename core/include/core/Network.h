@@ -20,12 +20,6 @@ namespace core {
         /* Max number of bits for the network*/
         int network_bits;
 
-        /* Active forward traces */
-        bool forward;
-
-        /* Active backward traces */
-        bool backward;
-
         /* Tensorflow 8b quantization */
         bool tensorflow_8b;
 
@@ -37,13 +31,10 @@ namespace core {
         /* Constructor
          * @param _name             The name of the network
          * @param _network_bits     Max number of bits of the network
-         * @param _forward          Active forward traces
-         * @param _backward         Active backward traces
          * @param _tensorflow_8b    Active tensorflow 8b quantization
          */
-        Network(const std::string &_name, int _network_bits = 16, bool _forward = false, bool _backward = false,
-                bool _tensorflow_8b = false) : network_bits(_network_bits), forward(_forward), backward(_backward),
-                tensorflow_8b(_tensorflow_8b) {
+        explicit Network(const std::string &_name, int _network_bits = 16, bool _tensorflow_8b = false) :
+                network_bits(_network_bits), tensorflow_8b(_tensorflow_8b) {
             name = _name;
         }
 
@@ -51,13 +42,10 @@ namespace core {
          * @param _name             The name of the network
          * @param _layers           Vector of layers
          * @param _network_bits     Max number of bits of the network
-         * @param _forward          Active forward traces
-         * @param _backward         Active backward traces
          * @param _tensorflow_8b    Active tensorflow 8b quantization
          */
         Network(const std::string &_name, const std::vector<Layer<T>> &_layers, int _network_bits = 16,
-                bool _forward = false, bool _backward = false, bool _tensorflow_8b = false) :
-                network_bits(_network_bits), forward(_forward), backward(_backward), tensorflow_8b(_tensorflow_8b) {
+                bool _tensorflow_8b = false) : network_bits(_network_bits), tensorflow_8b(_tensorflow_8b) {
             name = _name; layers = _layers;
         }
 
@@ -65,22 +53,18 @@ namespace core {
         const std::string &getName() const { return name; }
         const std::vector<Layer<T>> &getLayers() const { return layers; }
         int getNetwork_bits() const { return network_bits; }
-        bool getForward() const { return forward; }
-        bool getBackward() const { return backward; }
         bool isTensorflow_8b() const { return tensorflow_8b; }
 
         /* Setters */
         std::vector<Layer<T>> &updateLayers() { return layers; }
         void setNetwork_bits(int network_bits) { Network::network_bits = network_bits; }
-        void setForkward(bool forward) { Network::forward = forward; }
-        void setBackward(bool backward) { Network::backward = backward; }
         void setTensorflow_8b(bool tensorflow_8b) { Network::tensorflow_8b = tensorflow_8b; }
 
         /* Return a network in fixed point given a floating point network
          * @param network   Network in floating point
          */
         Network<uint16_t> fixed_point() {
-            auto fixed_network = Network<uint16_t>(name,network_bits,forward,backward,tensorflow_8b);
+            auto fixed_network = Network<uint16_t>(name,network_bits,tensorflow_8b);
 
             for(auto &layer : layers) {
                 auto fixed_layer = Layer<uint16_t>(layer.getType(),layer.getName(),layer.getInput(),layer.getNn(),
@@ -102,30 +86,6 @@ namespace core {
             }
 
             return fixed_network;
-        }
-
-        /* Duplicate the decoder layers to store all decode steps
-         * @param decoder_states Number of decoder states in the traces
-         */
-        void duplicate_decoder_layers(int decoder_states) {
-
-            std::vector<Layer<T>> tmp_layers;
-            std::vector<Layer<T>> tmp_decoders;
-
-            for(const auto layer : this->layers) {
-                if(layer.getType() == "Decoder") tmp_decoders.push_back(layer);
-                else tmp_layers.push_back(layer);
-            }
-
-            for(int decoder_state = 0; decoder_state < decoder_states; decoder_state++) {
-                for(const auto layer : tmp_decoders) {
-                    tmp_layers.push_back(layer);
-                    tmp_layers.back().setName(tmp_layers.back().getName() + "_" + std::to_string(decoder_state));
-                }
-            }
-
-            this->layers = tmp_layers;
-
         }
 
     };

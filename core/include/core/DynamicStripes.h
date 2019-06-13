@@ -136,48 +136,6 @@ namespace core {
          */
         void computePotentialsInnerProduct(const core::Layer<T> &layer, sys::Statistics::Stats &stats,int network_bits);
 
-        /* Compute average width for activations for laconic tile
-         * @param batch         Current number of batch
-         * @param recursion     Current recursion for LSTM
-         * @param list_act_x    X position for the set of input windows
-         * @param list_act_y    Y position for the set of input windows
-         * @param kernel_x      X position in the kernel window
-         * @param kernel_y      Y position in the kernel window
-         * @param init_channel  Starting index for the channel
-         * @param stride        Stride of the current layer
-         * @param padded_act    Set of padded input activations
-         * @param start_group   Starting channel of the group
-         * @param max_channel   Maximum number of channels
-         * @param act_mask      Position of the activations sign bit
-         * @param lstm          True if it is LSTM layer
-         * @return              Average width per group
-         */
-        std::vector<double> computeAvgWidthDynamicStripesActTile(int batch, int recursion,
-                const std::vector<int> &list_act_x, const std::vector<int> &list_act_y, int kernel_x, int kernel_y,
-                int init_channel, int stride, const cnpy::Array<T> &padded_act, int max_channel, int act_mask,
-                bool lstm);
-
-        /* Compute average width for weights for laconic tile
-         * @param kernel_x      X position in the kernel window
-         * @param kernel_y      Y position in the kernel window
-         * @param init_channel  Starting index for the channel
-         * @param init_filter   Starting index for the filter
-         * @param wgt           Set of weights
-         * @param max_channel   Maximum number of channels
-         * @param max_filter    Maximum number of filters
-         * @param wgt_mask      Position of the weights sign bit
-         * @return              Average width per group
-         */
-        std::vector<double> computeAvgWidthDynamicStripesWgtTile(int kernel_x, int kernel_y, int init_channel,
-                int init_filter, const cnpy::Array<T> &wgt, int max_channel, int max_filter, int wgt_mask);
-
-        /* Compute the average width for a layer
-         * @param layer         Layer for which we want to calculate the outputs
-         * @param stats         Statistics to fill
-         * @param network_bits  Max bits network
-         */
-        void computeAvgWidthLayer(const Layer<T> &layer, sys::Statistics::Stats &stats, int network_bits);
-
     public:
 
         /* Constructor
@@ -206,11 +164,6 @@ namespace core {
          * @param network   Network we want to calculate work reduction
          */
         void potentials(const Network<T> &network);
-
-        /* Calculate the average width in the network transformed to sign-magnitude
-         * @param network   Network we want to check
-         */
-        void average_width(const Network<T> &network);
 
     };
 
