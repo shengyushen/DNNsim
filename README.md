@@ -1,8 +1,8 @@
 # DNNsim 
 
 ### Requeriments
-*   Cmake posterior to version 3.10
-*   GNU C++ compiler posterior to version 5.1
+*   Cmake version >= 3.10
+*   GNU C++ compiler version >= 5.1
 *   Google Protobuf for C++. Installation link:
     *   https://github.com/protocolbuffers/protobuf/blob/master/src/README.md
 
