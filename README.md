@@ -138,7 +138,7 @@ Float32 for 4bytes floating point, and Fixed16 for 2bytes quantized integer
 |:---:|:---:|:---:|:---:|:---:|
 | BOOTH_ENCODING | bool | Activate booth encoding | True-False | True |
 | ZERO_COUNT | bool | Zero values count as one cycle | True-False | True | 
-| FC_MULTIPLEX_COLUMNS | bool | Fully connected layers are time-multiplexed in the columns | True-False | True |
+| FC_MULTIPLEX_COLUMNS | bool | Fully connected layers are time-multiplexed across the columns | True-False | True |
 | WEIGHT_LANES | uint32 | Number of weights per PE | Positive Numbers | 16 |
    
 ### Input Parameters Description   
@@ -159,7 +159,7 @@ Experiments for the simulation tool can contain the following parameters.
 | Name | Data Type | Description | Valid Options | Default |
 |:---:|:---:|:---:|:---:|:---:|
 | architecture | string | Name of the architecture to simulate | Allowed architectures | N/A |
-| task | string | Name of the architecture to simulate | Allowed tasks | N/A |
+| task | string | Name of the task to simulate | Allowed tasks | N/A |
 | | | | | |
 | n_columns | uint32 | Number of columns/windows in the tile | Positive number | 16 |
 | n_rows | uint32 | Number of rows/filters in the tile | Positive number | 16 |
