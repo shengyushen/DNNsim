@@ -1,15 +1,14 @@
-### BitPragmatic Example
+### Loom Example
 
-J. Albericio, A. Delmas Lascorz, P. Judd, S. Sharify, G. O'Leary, R. Genov, and A. Moshovos, 
-[Bit-Pragmatic Deep Learning](https://dl.acm.org/citation.cfm?id=3123982) Computing, IEEE/ACM MICRO 2017.
+S. Sharify, A. Delmas, P. Judd, K. Siu, and A. Moshovos
+[Loom: exploiting weight and activation precisions to accelerate convolutional neural networks](https://dl.acm.org/citation.cfm?id=3196072)
 
 ### Default Parameters Description   
 
-Default for the architecture. This parameters are defined in core/include/core/BitPragmatic.h
+Default for the architecture. This parameters are defined in core/include/core/Loom.h
 
 | Name | Data Type | Description | Valid Options | Default |
 |:---:|:---:|:---:|:---:|:---:|
-| BOOTH_ENCODING | bool | Activate booth encoding | True-False | True |
 | ZERO_COUNT | bool | Zero values count as one cycle | True-False | True | 
 | FC_MULTIPLEX_COLUMNS | bool | Fully connected layers are time-multiplexed across the columns | True-False | True |
    
@@ -19,12 +18,13 @@ The following parameters are valid for this architecture:
 
 | Name | Data Type | Description | Valid Options | Default |
 |:---:|:---:|:---:|:---:|:---:|
-| weight_lanes | uint32 | Number of concurrent weights per PE | Positive Numbers | 16 |
 | n_columns | uint32 | Number of columns/windows in the tile | Positive number | 16 |
 | n_rows | uint32 | Number of rows/filters in the tile | Positive number | 16 |
-| column_registers | uint32 | Number of registers per column to run-ahead | Positive number | 0 |
-| bits_first_stage | uint32 | Number of bits of the first stage shifter | Positive number | 0 |
-| diffy | bool | Simulate Diffy in top of the architecture | True-False | False |
+| precision_granularity | uint32 | Size of the group of values | Positive number | 16 |
+| leading bit | bool | Only the leading bit for dynamic precisions | True-False | False |
+| lookahead_h |uint32 | Lookahead window size | Positive number | 2 |
+| pe_serial_bits | uint32 | Number of serial bits per PE | Positive Number | 1 |
+| dynamic_weights | bool | Use dynamic precision for the weights | True-False | False |
 
 Example batch files in this folder are the following:
 
