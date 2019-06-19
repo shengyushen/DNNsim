@@ -37,7 +37,7 @@ THE SOFTWARE.
 #include <core/BitFusion.h>
 
 template <typename T>
-core::Network<T> read(const std::string &input_type, const std::string &network_name, int batch, bool QUIET) {
+core::Network<T> read(const std::string &input_type, const std::string &network_name, uint32_t batch, bool QUIET) {
 
     // Read the network
     core::Network<T> network;

@@ -18,7 +18,7 @@ namespace core {
         std::vector<Layer<T>> layers;
 
         /* Max number of bits for the network*/
-        int network_bits;
+        uint32_t network_bits;
 
         /* Tensorflow 8b quantization */
         bool tensorflow_8b;
@@ -33,7 +33,7 @@ namespace core {
          * @param _network_bits     Max number of bits of the network
          * @param _tensorflow_8b    Active tensorflow 8b quantization
          */
-        explicit Network(const std::string &_name, int _network_bits = 16, bool _tensorflow_8b = false) :
+        explicit Network(const std::string &_name, uint32_t _network_bits = 16, bool _tensorflow_8b = false) :
                 network_bits(_network_bits), tensorflow_8b(_tensorflow_8b) {
             name = _name;
         }
@@ -44,7 +44,7 @@ namespace core {
          * @param _network_bits     Max number of bits of the network
          * @param _tensorflow_8b    Active tensorflow 8b quantization
          */
-        Network(const std::string &_name, const std::vector<Layer<T>> &_layers, int _network_bits = 16,
+        Network(const std::string &_name, const std::vector<Layer<T>> &_layers, uint32_t _network_bits = 16,
                 bool _tensorflow_8b = false) : network_bits(_network_bits), tensorflow_8b(_tensorflow_8b) {
             name = _name; layers = _layers;
         }
@@ -57,7 +57,7 @@ namespace core {
 
         /* Setters */
         std::vector<Layer<T>> &updateLayers() { return layers; }
-        void setNetwork_bits(int network_bits) { Network::network_bits = network_bits; }
+        void setNetwork_bits(uint32_t network_bits) { Network::network_bits = network_bits; }
         void setTensorflow_8b(bool tensorflow_8b) { Network::tensorflow_8b = tensorflow_8b; }
 
         /* Return a network in fixed point given a floating point network
