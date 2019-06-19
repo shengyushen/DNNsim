@@ -1,0 +1,25 @@
+simulate {
+	network: "bvlc_googlenet"
+	model: "Caffe"
+	data_type: "Fixed16"
+	experiment {
+        architecture: "SCNN"
+        task: "Cycles"
+        Wt: 16
+        Ht: 16
+        I: 4
+        F: 4
+        out_acc_size: 1024
+        banks: 32
+	}
+}
+
+simulate {
+	network: "bvlc_googlenet"
+	model: "Caffe"
+	data_type: "Fixed16"
+	experiment {
+        architecture: "SCNN"
+        task: "Potentials"
+	}
+}
