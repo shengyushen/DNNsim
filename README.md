@@ -15,14 +15,8 @@
 *   Full network in a Google protobuf format file
 *   Tactical schedule in a protobuf format file
 
-### Compilation:
-Command line compilation. First we need to configure the project:
-    
-    cmake -H. -Bcmake-build-release -DCMAKE_BUILD_TYPE=Release
-
-Then, we can proceed to build the project
-
-    cmake --build cmake-build-release/ --target all
+Example model traces for some networks can be found under:
+   *  http://www.eecg.utoronto.ca/~edoisak/networks/
 
 ### Set up directories
 
@@ -50,7 +44,16 @@ Create folder **net_traces** including a folder for each network.
 In the case of **inference** simulation, every network must include:
    * wgt-$LAYER.npy
    * act-$LAYER-$BATCH.npy
-       
+   
+### Compilation:
+Command line compilation. First we need to configure the project:
+    
+    cmake -H. -Bcmake-build-release -DCMAKE_BUILD_TYPE=Release
+
+Then, we can proceed to build the project
+
+    cmake --build cmake-build-release/ --target all
+
 ### Test
 
 Print help:
