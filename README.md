@@ -125,8 +125,8 @@ The batch file can be constructed as follows for simulation:
 |:---:|:---:|:---:|:---:|:---:|
 | network | string | Name of the network as in the folder models | Valid path | N/A |
 | batch | uint32 | Corresponding batch for the Numpy traces | Positive numbers | 0 | 
-| inputType | string | Format of the input model definition and traces | Trace-Caffe-CParams-Protobuf-Gzip | N/A |
-| inputDataType | string | Data type of the input traces | Float32-Fixed16-BFloat16 | N/A |
+| model | string | Format of the input model definition | Trace-Caffe-CParams-Protobuf-Gzip | N/A |
+| data_type | string | Data type of the input traces | Float32-Fixed16-BFloat16 | N/A |
 | network_bits | uint32 | Number of baseline bits of the network | Positive Number | 16 |
 | tensorflow_8b | bool | Use tensorflow 8bits quantization | True-False | False |
 
