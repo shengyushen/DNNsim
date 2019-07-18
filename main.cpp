@@ -84,8 +84,9 @@ std::vector<schedule> read_schedule(const std::string &network_name, const std::
 
     interface::NetReader<T> reader = interface::NetReader<T>(network_name, 0, QUIET);
     int mux_entries = experiment.lookahead_h + experiment.lookaside_d + 1;
-    std::string schedule_type = arch + "_" + experiment.search_shape + std::to_string(mux_entries) + "("
-            + std::to_string(experiment.lookahead_h) + "-" + std::to_string(experiment.lookaside_d) + ")";
+    std::string schedule_type = arch + "_R" + std::to_string(experiment.n_rows) + "_" + experiment.search_shape +
+            std::to_string(mux_entries) + "(" + std::to_string(experiment.lookahead_h) + "-" +
+            std::to_string(experiment.lookaside_d) + ")";
     return reader.read_schedule_protobuf(schedule_type);
 }
 
@@ -95,8 +96,9 @@ void write_schedule(const core::Network<T> &network, core::BitTactical<T> &DNNsi
     const auto &network_schedule = DNNsim.network_scheduler(network);
     interface::NetWriter<uint16_t> writer = interface::NetWriter<uint16_t>(network.getName(),QUIET);
     int mux_entries = experiment.lookahead_h + experiment.lookaside_d + 1;
-    std::string schedule_type = arch + "_" + experiment.search_shape + std::to_string(mux_entries) + "("
-            + std::to_string(experiment.lookahead_h) + "-" + std::to_string(experiment.lookaside_d) + ")";
+    std::string schedule_type = arch + "_R" + std::to_string(experiment.n_rows) + "_" + experiment.search_shape +
+            std::to_string(mux_entries) + "(" + std::to_string(experiment.lookahead_h) + "-" +
+            std::to_string(experiment.lookaside_d) + ")";
     writer.write_schedule_protobuf(network_schedule,schedule_type);
 }
 

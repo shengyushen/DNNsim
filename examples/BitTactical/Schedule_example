@@ -5,6 +5,7 @@ simulate {
 	experiment {
         architecture: "BitTacticalE"
         task: "Schedule"
+        n_rows: 256
         lookahead_h: 2
         lookaside_d: 5
         search_shape: "L"
