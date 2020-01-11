@@ -1,127 +1,116 @@
 #ifndef DNNSIM_LACONIC_H
 #define DNNSIM_LACONIC_H
 
-#include "Simulator.h"
-
-#define ZERO_COUNT // Count zeroes as 1 cycle
-#define BOOTH_ENCODING // Activate booth-like encoding
-#define FC_MULTIPLEX_COLUMNS // Execute each mult-add in a different column
+#include "Architecture.h"
 
 namespace core {
 
+    /**
+     * Laconic simulator
+     * @tparam T 16 bits fixed point
+     */
     template <typename T>
-    class Laconic : public Simulator<T> {
+    class Laconic : public Architecture<T> {
 
     private:
 
-        /* Number of concurrent multiplications per PE */
-        const int N_LANES;
+        /* PARAMETERS */
 
-        /* Number of columns */
-        const int N_COLUMNS;
+        /** Activate booth-like encoding */
+        const bool BOOTH_ENCODING;
 
-        /* Number of rows */
-        const int N_ROWS;
+        /* AUXILIARY FUNCTIONS */
 
-        /* Compute number of one bit multiplications given a weights and an activation
-         * @param act       Activation
-         * @param wgt       Weight
-         * @return          Number of one bit multiplications
+        /**
+         * Get number of cycles
+         * @return Cycles
          */
-        uint8_t computeLaconicPE(uint16_t act, uint16_t wgt);
+        uint64_t getCycles() const override;
 
-        /* Compute cycles for one column of laconic
-         * @param batch         Current number of batch
-         * @param recursion     Current recursion for LSTM
-         * @param act_x         X position for the input window
-         * @param act_y         Y position for the input window
-         * @param kernel_x      X position in the kernel window
-         * @param kernel_y      Y position in the kernel window
-         * @param init_channel  Starting index for the channel
-         * @param init_filter   Starting index for the filter
-         * @param stride        Stride of the current layer
-         * @param padded_act    Set of padded input activations
-         * @param wgt           Set of weights
-         * @param max_channel   Maximum number of channels
-         * @param max_filter    Maximum number of filters
-         * @param lstm          True if it is LSTM layer
-         * @param conv2D        True if 2D convolution
-         * @return              Number of cycles
+        /**
+         * Return name of the class
+         * @return Name
          */
-        uint8_t computeLaconicColumn(int batch, int recursion, int act_x, int act_y, int kernel_x, int kernel_y,
-                int init_channel, int init_filter, int stride, const cnpy::Array<T> &padded_act,
-                const cnpy::Array<T> &wgt, int start_group, int max_channel, int max_filter, bool lstm, bool conv2D);
+        std::string name() override;
 
-        /* Compute cycles for laconic tile
-         * @param batch         Current number of batch
-         * @param list_act_x    X position for the set of input windows
-         * @param list_act_y    Y position for the set of input windows
-         * @param kernel_x      X position in the kernel window
-         * @param kernel_y      Y position in the kernel window
-         * @param init_channel  Starting index for the channel
-         * @param init_filter   Starting index for the filter
-         * @param stride        Stride of the current layer
-         * @param padded_act    Set of padded input activations
-         * @param wgt           Set of weights
-         * @param start_group   Starting channel of the group
-         * @param max_channel   Maximum number of channels
-         * @param max_filter    Maximum number of filters
-         * @param conv2D        True if 2D convolution
-         * @param stats         Statistics to fill
-         * @return              Number of cycles
+        /**
+         * Convert the data representation to the one need it.
+         * @param data          Array of values
+         * @param data_prec     Activation layer precision
          */
-        uint8_t computeLaconicTile(int batch, const std::vector<int> &list_act_x, const std::vector<int> &list_act_y,
-                int kernel_x, int kernel_y, int init_channel, int init_filter, int stride,
-                const cnpy::Array<T> &padded_act, const cnpy::Array<T> &wgt, int start_group, int max_channel,
-                int max_filter, bool conv2D, sys::Statistics::Stats &stats);
+        void dataConversion(base::Array<T> &data, uint8_t data_prec) override;
 
-        /* Compute the timing for a convolutional layer
-         * @param layer     Layer for which we want to calculate the outputs
-         * @param stats     Statistics to fill
-         */
-        void computeConvolution(const Layer<T> &layer, sys::Statistics::Stats &stats);
+        /* CYCLES */
 
-        /* Compute the timing for a fully-connected layer
-         * @param layer     Layer for which we want to calculate the outputs
-         * @param stats     Statistics to fill
+        /**
+         * Return stats filename for the architecture in the cycles function
+         * @return Filename
          */
-        void computeInnerProduct(const Layer<T> &layer, sys::Statistics::Stats &stats);
+        std::string filename() override;
 
-        /* Compute the potentials for a convolutional layer
-         * @param layer         Layer for which we want to calculate potentials
-         * @param stats         Statistics to fill
-         * @param network_bits  Max bits network
+        /**
+         * Return stats header for the architecture in the cycles function
+         * @return Header
          */
-        void computePotentialsConvolution(const core::Layer<T> &layer, sys::Statistics::Stats &stats,int network_bits);
+        std::string header() override;
 
-        /* Compute the potentials for a inner product layer
-         * @param layer         Layer for which we want to calculate potentials
-         * @param stats         Statistics to fill
-         * @param network_bits  Max bits network
+        /**
+         * Return if calculate deltas for the window buffer
+         * @return True if diffy, False if not
          */
-        void computePotentialsInnerProduct(const core::Layer<T> &layer, sys::Statistics::Stats &stats,int network_bits);
+        bool diffy() override;
+
+        /**
+         * Return if schedule the weight buffer
+         * @return True if weight buffer to schedule, False if not
+         */
+        bool schedule() override;
+
+        /**
+         * Calculate cycles for linear layers
+         * @param tiles_data Processing information for all the tiles
+         */
+        void process_linear(const std::vector<TileData<T>> &tiles_data);
+
+        /**
+         * Calculate cycles for convolutional layers
+         * @param tile_data Processing information for all the tiles
+         */
+        void process_convolution(const std::vector<TileData<T>> &tiles_data);
+
+        /**
+         * Calculate cycles for all the tiles
+         * @param tiles_data Processing information for all the tiles
+         */
+        void process_tiles(const std::vector<TileData<T>> &tiles_data) override;
+
+        /* POTENTIALS */
+
+        /**
+         * Return stats filename for the architecture in the potentials function
+         * @return Filename
+         */
+        std::string filename_pot() override;
+
+        /**
+         * Return stats header for the architecture in the potentials function
+         * @return Header
+         */
+        std::string header_pot() override;
+
+        /** Compute number of one bit multiplications given a weights and an activation
+         * @param act           Activation
+         * @param wgt           Weight
+         * @return              Number of one bit multiplications
+         */
+        uint16_t computeBits(T act, T wgt) override;
 
     public:
 
-        /* Constructor
-         * @param _N_LANES      Number of concurrent multiplications per PE
-         * @param _N_COLUMNS    Number of columns
-         * @param _N_ROWS       Number of rows
-         * @param _N_THREADS    Number of parallel threads for multi-threading execution
-         * @param _FAST_MODE    Enable fast mode to simulate only one image
+        /** Constructor
+         * @param _BOOTH_ENCODING       Activate booth-like encoding
          */
-        Laconic(uint32_t _N_LANES, uint32_t _N_COLUMNS, uint32_t _N_ROWS, uint8_t _N_THREADS, bool _FAST_MODE) :
-                Simulator<T>(_N_THREADS,_FAST_MODE), N_LANES(_N_LANES), N_COLUMNS(_N_COLUMNS), N_ROWS(_N_ROWS) {}
-
-        /* Run the timing simulator of the architecture
-         * @param network   Network we want to simulate
-         */
-        void run(const Network<T> &network);
-
-        /* Calculate potentials for the given network
-         * @param network   Network we want to calculate work reduction
-         */
-        void potentials(const Network<T> &network);
+        explicit Laconic(bool _BOOTH_ENCODING) : BOOTH_ENCODING(_BOOTH_ENCODING) {}
 
     };
 

@@ -8,30 +8,22 @@ project(
 # Create library
 add_library(
         ${PROJECT_NAME}
-        include/core/Layer.h
-        include/core/Network.h
-        include/core/Laconic.h
-        include/core/BitPragmatic.h
-        include/core/Stripes.h
-        include/core/DynamicStripes.h
-        include/core/Loom.h
-        include/core/BitTactical.h
-        include/core/BitTacticalP.h
-        include/core/BitTacticalE.h
-        include/core/SCNN.h
-        include/core/BitFusion.h
+        include/core/Dataflow.h
+        include/core/Architecture.h
+        src/Utils.cpp
+        src/OutputStationary.cpp
+        src/WindowFirstOutS.cpp
         src/Simulator.cpp
-        src/Laconic.cpp
-        src/BitPragmatic.cpp
+        src/DaDianNao.cpp
         src/Stripes.cpp
-        src/BitTactical.cpp
-        src/BitTacticalP.cpp
-        src/BitTacticalE.cpp
-        src/DynamicStripes.cpp
+        src/ShapeShifter.cpp
         src/Loom.cpp
+        src/BitPragmatic.cpp
+        src/Laconic.cpp
+        src/BitTactical.cpp
         src/SCNN.cpp
-        src/BitFusion.cpp
 )
+
 
 target_include_directories(
         ${PROJECT_NAME}
@@ -40,7 +32,8 @@ target_include_directories(
 
 target_link_libraries(
         ${PROJECT_NAME}
-        PRIVATE cnpy
+        PRIVATE base
+        PRIVATE interface
         PRIVATE sys
 )
 

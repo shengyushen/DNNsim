@@ -3,227 +3,424 @@
 
 namespace core {
 
-    /* COMMON FUNCTIONS */
+    /* AUXILIARY FUNCTIONS */
 
     template <typename T>
-    bool Simulator<T>::iterateWindows(long out_x, long out_y, std::vector<int> &list_x, std::vector<int> &list_y,
-            int &x_counter, int &y_counter, int max_windows) {
-        list_x.clear();
-        list_y.clear();
-        int current_windows = 0;
-        while(x_counter < out_x) {
-            while(y_counter < out_y) {
-                list_x.push_back(x_counter);
-                list_y.push_back(y_counter);
-                current_windows++;
-                y_counter++;
-                if(current_windows >= max_windows)
-                    return true;
+    void check_result_channel_first(const OutputTensor &sim_output, const std::shared_ptr<base::Array<T>> &act,
+            const std::shared_ptr<base::Array<T>> &wgt, int batch, uint64_t Ox, uint64_t Oy, int stride, bool lstm) {
+
+        const std::vector<size_t> &act_shape = act->getShape();
+        const std::vector<size_t> &wgt_shape = wgt->getShape();
+
+        // Activations
+        auto R = lstm ? act_shape[0] : 1;
+        auto act_channels = lstm ? act_shape[2] : act_shape[1];
+
+        // Weights
+        auto num_filters = wgt_shape[0];
+        auto wgt_channels = wgt_shape[1];
+        auto Kx = wgt_shape[2];
+        auto Ky = wgt_shape[3];
+
+        auto groups = act_channels / wgt_channels;
+        auto filters_per_group = num_filters / groups;
+
+        OutputTensor output = OutputTensor(num_filters, std::vector<std::vector<double>>(Ox,
+                std::vector<double>(Oy, 0)));
+
+        // Actual convolution
+        for (int r = 0; r < R; ++r) {
+
+            for (int m = 0; m < num_filters; ++m) {
+
+                // Two towers alexnet
+                int start_group = 0;
+                if (m >= filters_per_group)
+                    start_group = (int) wgt_channels;
+
+                // Fix for MobileNet
+                if (wgt_channels == 1 && act_channels != 1)
+                    start_group = m;
+
+                // Number of Windows
+                for (int x = 0; x < Ox; ++x) {
+                    for (int y = 0; y < Oy; ++y) {
+
+                        double sum = 0;
+
+                        // Window dimension
+                        for (int j = 0; j < Ky; ++j) {
+                            for (int i = 0; i < Kx; ++i) {
+                                for (int k = 0; k < wgt_channels; ++k) {
+                                    auto act_bits = lstm ? act->get(r, batch, k) :
+                                            act->get(batch, start_group + k, stride * x + i, stride * y + j);
+                                    sum += act_bits * wgt->get(m, k, i, j);
+                                }
+                            }
+                        }
+
+                        output[m][x][y] += sum;
+                    }
+                }
             }
-            y_counter = 0;
-            x_counter++;
         }
-        if(current_windows > 0)
-            return true;
 
-        x_counter = 0;
-        return false;
-    }
-
-    /* Only encode the values when get less number of bits */
-    uint16_t generateBoothEncoding(uint16_t n) {
-        uint32_t padded_n = n << 2;
-        std::string bitstream = std::bitset<16 + 2>(padded_n).to_string();
-        uint16_t booth_encoding = 0;
-        bool booth = false;
-        for(int i = 0; i < 16; i++) {
-            std::string w = bitstream.substr(0,3);
-            booth_encoding <<= 1;
-            if(w == "000" || w == "001") {
-                assert(!booth);
-            } else if(w == "010") {
-                if (booth) booth_encoding |= 0x1;
-            } else if(w == "011") {
-                if (booth) booth_encoding |= 0x1;
-            } else if(w == "100") {
-                if (!booth) booth_encoding |= 0x1;
-                else { booth_encoding |= 0x1; booth = false;}
-            } else if(w == "101") {
-                if (!booth) booth_encoding |= 0x1;
-            } else if(w == "110") {
-                if (!booth) booth_encoding |= 0x1;
-            } else if(w == "111") {
-                if (!booth) { booth_encoding |= 0x2;  booth = true; }
+        // Check values
+        for (int ch = 0; ch < num_filters; ++ch) {
+            for (int x = 0; x < Ox; ++x) {
+                for (int y = 0; y < Oy; ++y) {
+                    auto actual_value = output[ch][x][y];
+                    auto sim_value = sim_output[ch][x][y];
+                    auto error = (actual_value - sim_value) / sim_value;
+                    if (abs(error) > 1e-10)
+                        throw std::runtime_error("Simulation wrong value.");
+                }
             }
-            bitstream = bitstream.substr(1);
         }
-        return booth_encoding;
-    }
-
-    std::vector<uint16_t> generateBoothTable(const int MAX_VALUES = 32768) {
-        std::vector<uint16_t> booth_table ((unsigned)MAX_VALUES, 0);
-        for(int n = 0; n < MAX_VALUES; n++)
-            booth_table[n] = generateBoothEncoding((uint16_t)n);
-        return booth_table;
     }
 
     template <typename T>
-    uint16_t Simulator<T>::booth_encoding(uint16_t value) {
-        const static std::vector<uint16_t> booth_table = generateBoothTable();
-        return booth_table[value];
+    void calculate_output(OutputTensor &output, const std::vector<TileData<T>> &tiles_data) {
+
+        for (const auto &tile_data : tiles_data) {
+
+            if (!tile_data.valid)
+                continue;
+
+            for (int w = 0; w < tile_data.windows.size(); ++w) {
+                auto window_idx = w * tile_data.lanes;
+                auto x_window = std::get<0>(tile_data.windows[w]);
+                auto y_window = std::get<1>(tile_data.windows[w]);
+
+                for (int f = 0; f < tile_data.filters.size(); ++f) {
+                    auto filter_idx = f * tile_data.lanes;
+                    auto filter = tile_data.filters[f];
+
+                    for (int lane = 0; lane < tile_data.lanes; ++lane) {
+
+                        auto wgt_bits = std::get<0>(tile_data.wgt_row[filter_idx + lane]);
+                        auto time_h = (std::get<1>(tile_data.wgt_row[filter_idx + lane]) - tile_data.time);
+                        auto lane_d = std::get<2>(tile_data.wgt_row[filter_idx + lane]);
+
+                        if (time_h < 0) continue;
+
+                        auto act_bits = std::get<0>(tile_data.act_row[time_h][window_idx + lane_d]);
+
+                        output[filter][x_window][y_window] += act_bits * wgt_bits;
+
+                    } // Multiply 16 weights and 16 activations values
+                } // Filter
+            } // Window
+        } // Tiles
+
     }
 
-    std::vector<uint8_t> generateEffectualBitsTable(const int MAX_VALUES = 65535) {
-        std::vector<uint8_t> effectual_bits_table ((unsigned)MAX_VALUES, 0);
-        for(int n = 0; n < MAX_VALUES; n++) {
-
-            auto tmp_n = n;
-            uint8_t effectual_bits = 0;
-            while (tmp_n) {
-                effectual_bits += tmp_n & 1;
-                tmp_n >>= 1;
-            }
-
-            effectual_bits_table[n] = effectual_bits;
-        }
-        return effectual_bits_table;
-    }
+    /* CYCLES */
 
     template <typename T>
-    uint8_t Simulator<T>::effectualBits(uint16_t value) {
-        const static std::vector<uint8_t> effectual_bits_table = generateEffectualBitsTable();
-        return effectual_bits_table[value];
-    }
+    void Simulator<T>::run(const base::Network<T> &network, const std::shared_ptr<Architecture<T>> &arch,
+            const std::shared_ptr<Dataflow<T>> &dataflow) {
 
-    std::vector<std::tuple<uint8_t,uint8_t>> generateMinMaxTable(const int MAX_VALUES = 32768) {
-        std::vector<std::tuple<uint8_t,uint8_t>> min_max_table ((unsigned)MAX_VALUES, std::tuple<uint8_t,uint8_t>());
-        min_max_table[0] = std::make_tuple(16,0);
-        for(int n = 1; n < MAX_VALUES; n++) {
+        if(!QUIET) std::cout << "Starting cycles simulation for architecture " << arch->name() << std::endl;
 
-            auto tmp_n = n;
-            uint8_t count = 0;
-            std::vector<uint8_t> offsets;
-            while (tmp_n) {
-                auto current_bit = tmp_n & 1;
-                if(current_bit) offsets.push_back(count);
-                tmp_n >>= 1;
-                count++;
-            }
-
-            auto min_act_bit = offsets[0];
-            auto max_act_bit = offsets[offsets.size()-1];
-
-            min_max_table[n] = std::make_tuple(min_act_bit,max_act_bit);
-        }
-        return min_max_table;
-    }
-
-    template <typename T>
-    std::tuple<uint8_t,uint8_t> Simulator<T>::minMax(uint16_t value) {
-        const static std::vector<std::tuple<uint8_t,uint8_t>> min_max_table = generateMinMaxTable();
-        return min_max_table[value];
-    }
-
-    template <typename T>
-    bool Simulator<T>::check_act_bits(const std::vector<std::queue<uint8_t>> &offsets) {
-        for (const auto &act_bits : offsets) {
-            if (!act_bits.empty()) return true;
-        }
-        return false;
-    }
-
-    template <typename T>
-    uint16_t Simulator<T>::sign_magnitude(short two_comp, uint16_t mask) {
-        bool neg = two_comp < 0;
-        int max_value = mask - 1;
-        auto sign_mag = (uint16_t)abs(two_comp);
-        sign_mag = (uint16_t)(sign_mag > max_value ? max_value : sign_mag);
-        sign_mag = neg ? sign_mag | mask : sign_mag;
-        return sign_mag;
-    }
-
-    /* DATA CALCULATIONS */
-
-    template <typename T>
-    void Simulator<T>::sparsity(const Network<T> &network) {
         // Initialize statistics
-        sys::Statistics::Stats stats;
-        sys::Statistics::initialize(stats);
+        std::string filename = arch->name() + "_L" + std::to_string(N_LANES) + "_C" + std::to_string(N_COLUMNS) +
+                "_R" + std::to_string(N_ROWS) + "_T" + std::to_string(N_TILES) + "_BP" + std::to_string(BITS_PE) +
+                arch->filename() + "_cycles";
 
-        stats.task_name = "sparsity";
-        stats.net_name = network.getName();
-        stats.arch = "None";
+        sys::Stats stats = sys::Stats(network.getNumLayers(), this->FAST_MODE ? 1 : network.getBatches(), filename);
 
-        for(const Layer<T> &layer : network.getLayers()) {
-            stats.layers.push_back(layer.getName());
+        // Architecture stats
+        auto cycles = stats.register_uint_t("cycles", 0, sys::AverageTotal);
+        auto pe_stall_cycles = stats.register_uint_t("PE stall cycles", 0, sys::AverageTotal);
+        auto column_stall_cycles = stats.register_uint_t("column stall cycles", 0, sys::AverageTotal);
+        auto scheduled_pe = stats.register_uint_t("scheduled PEs", 0, sys::AverageTotal);
+        auto idle_pe = stats.register_uint_t("idle PEs", 0, sys::AverageTotal);
 
-            uint64_t zero_act = 0;
-            const auto &act = layer.getActivations();
-            for(uint64_t i = 0; i < act.getMax_index(); i++) {
-                const auto data = act.get(i);
-                if(data == 0) zero_act++;
+        // Dataflow stats
+        auto act_buff_reads = stats.register_uint_t("activation buffer reads", 0, sys::AverageTotal);
+        auto wgt_buff_reads = stats.register_uint_t("weight buffer reads", 0, sys::AverageTotal);
+        auto acc_updates = stats.register_uint_t("accumulator_updates", 0, sys::AverageTotal);
+        auto out_buffer_writes = stats.register_uint_t("output buffer writes", 0, sys::AverageTotal);
+
+        auto act_precision = stats.register_uint_t("activations precision", 0, sys::Average);
+        auto wgt_precision = stats.register_uint_t("weights precision", 0, sys::Average);
+
+        auto network_bits = network.getNetwork_bits();
+        for(auto layer_it = 0; layer_it < network.getNumLayers(); ++layer_it) {
+
+            const base::Layer<T> &layer = network.getLayers()[layer_it];
+            bool conv = layer.getType() == "Convolution";
+            bool lstm = layer.getType() == "LSTM";
+            bool fc = layer.getType() == "InnerProduct";
+
+            if (!QUIET) std::cout << "Simulating layer: " << layer.getName() << std::endl;
+
+            auto act = std::make_shared<base::Array<T>>(layer.getActivations());
+            arch->dataConversion(*act, layer.getActPrecision());
+            if (fc && act->getDimensions() == 4) act->reshape_to_2D();
+            if (act->getDimensions() == 2) act->reshape_to_4D();
+
+            auto wgt = std::make_shared<base::Array<T>>(layer.getWeights());
+            arch->dataConversion(*wgt, layer.getWgtPrecision());
+            if (wgt->getDimensions() == 2) wgt->reshape_to_4D();
+
+            int padding = layer.getPadding();
+            int stride = layer.getStride();
+
+            if (conv) act->zero_pad(padding);
+
+            if(act->getShape()[1] == 3 && stride > 1) {
+                act->reshape_first_layer_act(stride);
+                wgt->reshape_first_layer_wgt(stride);
+                stride = 1;
             }
 
-            uint64_t zero_wgt = 0;
-            const auto &wgt = layer.getWeights();
-            for(uint64_t i = 0; i < wgt.getMax_index(); i++) {
-                const auto data = wgt.get(i);
-                if(data == 0) zero_wgt++;
-            }
+            const std::vector<size_t> &act_shape = act->getShape();
+            const std::vector<size_t> &wgt_shape = wgt->getShape();
 
-            stats.act_sparsity.push_back(zero_act / (double)act.getMax_index() * 100.);
-            stats.zero_act.push_back(zero_act);
-            stats.total_act.push_back(act.getMax_index());
-            stats.wgt_sparsity.push_back(zero_wgt / (double)wgt.getMax_index() * 100.);
-            stats.zero_wgt.push_back(zero_wgt);
-            stats.total_wgt.push_back(wgt.getMax_index());
+            uint64_t batch_size, act_channels, Nx, Ny, R;
+            if (lstm) {
+                R = act_shape[0];
+                batch_size = act_shape[1];
+                act_channels = act_shape[2];
+                Nx = 1;
+                Ny = 1;
+            } else {
+                R = 1;
+                batch_size = act_shape[0];
+                act_channels = act_shape[1];
+                Nx = act_shape[2];
+                Ny = act_shape[3];
+            }
+            if (FAST_MODE) batch_size = 1;
+
+            auto num_filters = wgt_shape[0];
+            auto wgt_channels = wgt_shape[1];
+            auto Kx = wgt_shape[2];
+            auto Ky = wgt_shape[3];
+
+            auto Ox = (Nx - Kx) / stride + 1;
+            auto Oy = (Ny - Ky) / stride + 1;
+
+            auto act_prec = layer.getActPrecision();
+            auto wgt_prec = layer.getWgtPrecision();
+
+            auto columns_per_act = (uint32_t)ceil(act_prec / (double)BITS_PE);
+            auto rows_per_wgt = (uint32_t)ceil(wgt_prec / (double)BITS_PE);
+
+            auto COLUMNS = N_COLUMNS / columns_per_act;
+            auto ROWS = N_ROWS / rows_per_wgt;
+
+            arch->initialise_layer(act_prec, wgt_prec, network_bits, fc || lstm);
+            dataflow->initialise_layer(act, wgt, arch->diffy(), arch->schedule(), fc, lstm, R, Ox, Oy, stride, N_LANES,
+                    COLUMNS, ROWS, N_TILES);
+
+            // Iterate over the images
+            for (int batch = 0; batch < batch_size; ++batch) {
+
+                OutputTensor sim_output = OutputTensor(num_filters, std::vector<std::vector<double>>(Ox,
+                        std::vector<double>(Oy, 0)));
+
+                arch->initialise_batch(COLUMNS, N_TILES);
+                dataflow->initialise_batch(batch);
+
+                auto tiles_data = std::vector<TileData<T>>(N_TILES, TileData<T>());
+                while(dataflow->next_dataflow_step(tiles_data)) {
+                    arch->process_tiles(tiles_data);
+                    if (this->CHECK) calculate_output(sim_output, tiles_data);
+                }
+
+                if (CHECK) check_result_channel_first(sim_output, act, wgt, batch, Ox, Oy, stride, lstm);
+
+                // Dump stats
+                cycles->value[layer_it][batch] = arch->getCycles();
+                pe_stall_cycles->value[layer_it][batch] = arch->getPEStallCycles();
+                column_stall_cycles->value[layer_it][batch] = arch->getColumnStallCycles();
+                scheduled_pe->value[layer_it][batch] = arch->getScheduledPe();
+                idle_pe->value[layer_it][batch] = arch->getIdlePe();
+
+                act_buff_reads->value[layer_it][batch] = dataflow->getActBuffReads();
+                wgt_buff_reads->value[layer_it][batch] = dataflow->getWgtBuffReads();
+                acc_updates->value[layer_it][batch] = dataflow->getAccUpdates();
+                out_buffer_writes->value[layer_it][batch] = dataflow->getOutBufferWrites();
+
+                act_precision->value[layer_it][batch] = act_prec;
+                wgt_precision->value[layer_it][batch] = wgt_prec;
+
+            }
 
         }
 
-        // Set statistics to write
-        sys::Statistics::addStats(stats);
+        //Dump statistics
+        std::string header = arch->name() + " Number of Cycles for " + network.getName() + "\n";
+        header += "Dataflow: " + dataflow->name() + "\n";
+        header += "Number of lanes/terms per PE: " + std::to_string(N_LANES) + "\n";
+        header += "Number of columns/windows in parallel: " + std::to_string(N_COLUMNS) + "\n";
+        header += "Number of rows/filters in parallel: " + std::to_string(N_ROWS) + "\n";
+        header += "Number of tiles: " + std::to_string(N_TILES) + "\n";
+        header += "Size of the PE in bits: " + std::to_string(BITS_PE) + "\n";
+
+        stats.dump_csv(network.getName(), network.getLayersName(), header + arch->header(), QUIET);
     }
 
-    template <typename uint16_t>
-    void Simulator<uint16_t>::bit_sparsity(const Network<uint16_t> &network) {
+    /* POTENTIALS */
+
+    template <typename T>
+    void Simulator<T>::potentials(const base::Network<T> &network, const std::shared_ptr<Architecture<T>> &arch) {
+
+        if(!QUIET) std::cout << "Starting potentials simulation for architecture " << arch->name() << std::endl;
+
         // Initialize statistics
-        sys::Statistics::Stats stats;
-        sys::Statistics::initialize(stats);
+        std::string filename = arch->name() + arch->filename_pot() + "_potentials";
+        sys::Stats stats = sys::Stats(network.getNumLayers(), this->FAST_MODE ? 1 : network.getBatches(), filename);
 
-        stats.task_name = "bit_sparsity";
-        stats.net_name = network.getName();
-        stats.arch = "None";
+        auto work_reduction = stats.register_double_t("work_reduction", 0, sys::Special);
+        auto speedup = stats.register_double_t("speedup", 0, sys::Special);
+        auto bit_mult = stats.register_uint_t("bit_multiplications", 0, sys::AverageTotal);
+        auto max_bit_mult = stats.register_uint_t("max_bit_multiplications", 0, sys::AverageTotal);
+        auto max_par_mult = stats.register_double_t("max_parallel_multiplication", 0, sys::AverageTotal);
+        auto act_precision = stats.register_uint_t("activations_precision", 0, sys::Average);
+        auto wgt_precision = stats.register_uint_t("weights_precision", 0, sys::Average);
 
-        for(const Layer<uint16_t> &layer : network.getLayers()) {
-            stats.layers.push_back(layer.getName());
+        auto network_bits = network.getNetwork_bits();
+        double MAX_BITS = network_bits * network_bits;
+        for(auto layer_it = 0; layer_it < network.getNumLayers(); ++layer_it) {
 
-            uint64_t zero_act_bits = 0;
-            const auto &act = layer.getActivations();
-            for(uint64_t i = 0; i < act.getMax_index(); i++) {
-                const auto bits = act.get(i);
-                uint8_t ones = effectualBits(bits);
-                zero_act_bits += (16 - ones);
+            const base::Layer<T> &layer = network.getLayers()[layer_it];
+            bool conv = layer.getType() == "Convolution";
+            bool lstm = layer.getType() == "LSTM";
+            bool fc = layer.getType() == "InnerProduct";
+
+            if (!QUIET) std::cout << "Simulating layer: " << layer.getName() << std::endl;
+
+            base::Array<T> act = layer.getActivations();
+            arch->dataConversion(act, layer.getActPrecision());
+            if (fc && act.getDimensions() == 4) act.reshape_to_2D();
+            if (act.getDimensions() == 2) act.reshape_to_4D();
+
+            base::Array<T> wgt = layer.getWeights();
+            arch->dataConversion(wgt, layer.getWgtPrecision());
+            if (wgt.getDimensions() == 2) wgt.reshape_to_4D();
+
+            int padding = layer.getPadding();
+            int stride = layer.getStride();
+
+            if (conv) act.zero_pad(padding);
+
+            const std::vector<size_t> &act_shape = act.getShape();
+            const std::vector<size_t> &wgt_shape = wgt.getShape();
+
+            uint64_t batch_size, act_channels, Nx, Ny, R;
+            if (lstm) {
+                R = act_shape[0];
+                batch_size = act_shape[1];
+                act_channels = act_shape[2];
+                Nx = 1;
+                Ny = 1;
+            } else {
+                R = 1;
+                batch_size = act_shape[0];
+                act_channels = act_shape[1];
+                Nx = act_shape[2];
+                Ny = act_shape[3];
+            }
+            if (FAST_MODE) batch_size = 1;
+
+            auto num_filters = wgt_shape[0];
+            auto wgt_channels = wgt_shape[1];
+            auto Kx = wgt_shape[2];
+            auto Ky = wgt_shape[3];
+
+            long Ox = (Nx - Kx) / stride + 1;
+            long Oy = (Ny - Ky) / stride + 1;
+
+            auto groups = act_channels / wgt_channels;
+            auto filters_per_group = num_filters / groups;
+
+            auto act_prec = layer.getActPrecision();
+            auto wgt_prec = layer.getWgtPrecision();
+
+            // Operations
+            uint64_t max_par_counter = conv ? num_filters * Ox * Oy * Kx * Ky * wgt_channels :
+                    num_filters * wgt_channels * R;
+            uint64_t max_bit_counter = max_par_counter * MAX_BITS;
+
+            arch->initialise_layer(act_prec, wgt_prec, network_bits, fc || lstm);
+
+            for(int n = 0; n < batch_size; ++n) {
+
+                // Stats
+                uint64_t bit_counter = 0;
+
+                if (conv) {
+
+                    for(int m = 0; m < num_filters; ++m) {
+
+                        // Two towers alexnet
+                        int start_group = 0;
+                        if(m >= filters_per_group)
+                            start_group = (int)wgt_channels;
+
+                        // Fix for MobileNet
+                        if(wgt_channels == 1 && act_channels != 1)
+                            start_group = m;
+
+                        for(int x = 0; x < Ox; ++x) {
+                            for(int y = 0; y < Oy; ++y) {
+                                for (int i = 0; i < Kx; ++i) {
+                                    for (int j = 0; j < Ky; ++j) {
+                                        for (int k = 0; k < wgt_channels; ++k) {
+                                            T act_bits = act.get(n, start_group + k, stride * x + i, stride * y + j);
+                                            T wgt_bits = wgt.get(m, k, i, j);
+                                            bit_counter += arch->computeBits(act_bits, wgt_bits);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                } else {
+
+                    for (int r = 0; r < R; ++r) {
+                        for (int m = 0; m < num_filters; ++m) {
+                            for (int k = 0; k < wgt_channels; ++k) {
+                                T act_bits = lstm ? act.get(r, n, k) : act.get(n, k);
+                                T wgt_bits = wgt.get(m, k);
+                                bit_counter += arch->computeBits(act_bits, wgt_bits);
+                            }
+                        }
+                    }
+
+                }
+
+                bit_mult->value[layer_it][n] = bit_counter;
+                max_bit_mult->value[layer_it][n] = max_bit_counter;
+                max_par_mult->value[layer_it][n] = max_par_counter;
+
+                work_reduction->value[layer_it][n] = 100 - (bit_counter / (double)max_bit_counter * 100.);
+                speedup->value[layer_it][n] = max_bit_counter / (double)bit_counter;
+
+                act_precision->value[layer_it][n] = layer.getActPrecision();
+                wgt_precision->value[layer_it][n] = layer.getWgtPrecision();
             }
 
-            uint64_t zero_wgt_bits = 0;
-            const auto &wgt = layer.getWeights();
-            for(uint64_t i = 0; i < wgt.getMax_index(); i++) {
-                const auto bits = wgt.get(i);
-                uint8_t ones = effectualBits(bits);
-                zero_wgt_bits += (16 - ones);
-            }
-
-            stats.act_sparsity.push_back(zero_act_bits / (act.getMax_index() * 16.) * 100.);
-            stats.zero_act.push_back(zero_act_bits);
-            stats.total_act.push_back(act.getMax_index() * 16);
-            stats.wgt_sparsity.push_back(zero_wgt_bits / (wgt.getMax_index() * 16.) * 100.);
-            stats.zero_wgt.push_back(zero_wgt_bits);
-            stats.total_wgt.push_back(wgt.getMax_index() * 16);
+            work_reduction->special_value_vector.push_back(100 - (sys::get_total(bit_mult->value[layer_it]) /
+                    (double)sys::get_total(max_bit_mult->value[layer_it]) * 100.));
+            speedup->special_value_vector.push_back(sys::get_total(max_bit_mult->value[layer_it]) /
+                    (double)(sys::get_total(bit_mult->value[layer_it])));
 
         }
 
-        // Set statistics to write
-        sys::Statistics::addStats(stats);
+        work_reduction->special_value = 100 - (sys::get_total(bit_mult->value) /
+                (double)sys::get_total(max_bit_mult->value) * 100.);
+        speedup->special_value = sys::get_total(max_bit_mult->value) / (double)(sys::get_total(bit_mult->value));
+
+        //Dump statistics
+        std::string header = arch->name() + " Potentials/Work Reduction for " + network.getName() + "\n";
+        stats.dump_csv(network.getName(), network.getLayersName(), header + arch->header_pot(), QUIET);
+
     }
 
     INITIALISE_DATA_TYPES(Simulator);

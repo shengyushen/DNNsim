@@ -1,0 +1,27 @@
+simulate {
+	network: "bvlc_googlenet"
+	model: "Caffe"
+	data_type: "Fixed16"
+	experiment {
+        architecture: "ShapeShifter"
+        task: "Cycles"
+        n_lanes: 16
+        n_columns: 16
+        n_rows: 16
+        n_tiles: 16
+        bits_pe: 16
+        group_size: 1
+        column_registers: 0
+        minor_bit: false
+        tactical: true
+        lookahead_h: 2
+        lookaside_d: 5
+        search_shape: 'T'
+	}
+	experiment {
+        architecture: "ShapeShifter"
+        task: "Potentials"
+        minor_bit: false
+        tactical: true
+	}
+}

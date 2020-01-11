@@ -11,12 +11,8 @@ add_library(
         ${PROTO_GENERATED_SOURCES}
         ${PROTO_GENERATED_HEADERS}
         include/interface/Interface.h
-        include/interface/NetReader.h
-        include/interface/NetWriter.h
-        include/interface/StatsWriter.h
         src/NetReader.cpp
         src/NetWriter.cpp
-        src/StatsWriter.cpp
 )
 
 target_include_directories(
@@ -27,8 +23,7 @@ target_include_directories(
 
 target_link_libraries(
         ${PROJECT_NAME}
-        PRIVATE cnpy
-        PRIVATE core
+        PRIVATE base
         PRIVATE sys
         PRIVATE proto
 )

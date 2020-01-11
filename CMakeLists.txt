@@ -18,12 +18,12 @@ endif()
 add_subdirectory(proto)
 # Add library for script support
 add_subdirectory(sys)
-# Add the math library
-add_subdirectory(cnpy)
-# Add the core library
-add_subdirectory(core)
+# Add the base library
+add_subdirectory(base)
 # Add library for load the inputs and dump the networks
 add_subdirectory(interface)
+# Add the core library
+add_subdirectory(core)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -36,7 +36,7 @@ add_executable(
 
 target_link_libraries(
         ${PROJECT_NAME}
-        PRIVATE cnpy
+        PRIVATE base
         PRIVATE core
         PRIVATE interface
         PRIVATE sys
@@ -50,3 +50,23 @@ set_target_properties(
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/..
         LINKER_LANGUAGE CXX
 )
+
+option(BUILD_DOC "Build documentation" ON)
+
+find_package(Doxygen)
+if (DOXYGEN_FOUND)
+
+    set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in)
+    set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+
+    configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
+    #message("Doxygen build started")
+
+    add_custom_target( doc ALL
+            COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            COMMENT "Generating API documentation with Doxygen"
+            VERBATIM )
+else (DOXYGEN_FOUND)
+    message("Doxygen need to be installed to generate the doxygen documentation")
+endif (DOXYGEN_FOUND)

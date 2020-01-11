@@ -13,7 +13,7 @@ namespace interface {
     }
 
     template <typename T>
-    core::Layer<T> NetReader<T>::read_layer_caffe(const caffe::LayerParameter &layer_caffe) {
+    base::Layer<T> NetReader<T>::read_layer_caffe(const caffe::LayerParameter &layer_caffe) {
         int Nn = -1, Kx = -1, Ky = -1, stride = -1, padding = -1;
 
         if(layer_caffe.type() == "Convolution") {
@@ -36,14 +36,14 @@ namespace interface {
         type = (name.find("lstm") != std::string::npos) ? "LSTM" : type;
         type = (name.find("forward") != std::string::npos) ? "LSTM" : type;
         type = (name.find("backward") != std::string::npos) ? "LSTM" : type;
-        return core::Layer<T>(type,name,layer_caffe.bottom(0), Nn, Kx, Ky, stride, padding);
+        return base::Layer<T>(type,name,layer_caffe.bottom(0), Nn, Kx, Ky, stride, padding);
     }
 
     template <typename T>
-    core::Network<T> NetReader<T>::read_network_caffe() {
+    base::Network<T> NetReader<T>::read_network_caffe() {
         GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-        std::vector<core::Layer<T>> layers;
+        std::vector<base::Layer<T>> layers;
         caffe::NetParameter network;
 
         check_path("models/" + this->name);
@@ -61,13 +61,13 @@ namespace interface {
 
         if(!QUIET) std::cout << "Network loaded from Caffe prototxt model definition" << std::endl;
 
-        return core::Network<T>(this->name,layers);
+        return base::Network<T>(this->name,layers);
     }
 
     template <typename T>
-    core::Network<T> NetReader<T>::read_network_trace_params() {
+    base::Network<T> NetReader<T>::read_network_trace_params() {
 
-        std::vector<core::Layer<T>> layers;
+        std::vector<base::Layer<T>> layers;
 
         check_path("models/" + this->name);
         std::string path = "models/" + this->name + "/trace_params.csv";
@@ -90,8 +90,7 @@ namespace interface {
                     type = "Decoder";
                 else if (words[0].find("encoder") != std::string::npos)
                     type = "Encoder";
-                else if (words[0].find("fc") != std::string::npos || words[0].find("inner_prod") != std::string::npos ||
-                        words[0].find("Linear") != std::string::npos)
+                else if (words[0].find("fc") != std::string::npos || words[0].find("Linear") != std::string::npos)
                     type = "InnerProduct";
                 else if (words[0].find("lstm") != std::string::npos)
                     type = "LSTM";
@@ -99,10 +98,10 @@ namespace interface {
                     type = "Convolution";
 
                 if(words.size() == 7)
-                    layers.emplace_back(core::Layer<T>(type,words[0],words[1], stoi(words[2]), stoi(words[3]),
+                    layers.emplace_back(base::Layer<T>(type,words[0],words[1], stoi(words[2]), stoi(words[3]),
                         stoi(words[4]), stoi(words[5]), stoi(words[6])));
                 else if(words.size() == 6)
-                    layers.emplace_back(core::Layer<T>(type,words[0],"", stoi(words[1]), stoi(words[2]),
+                    layers.emplace_back(base::Layer<T>(type,words[0],"", stoi(words[1]), stoi(words[2]),
                             stoi(words[3]), stoi(words[4]), stoi(words[5])));
                 else
                     throw std::runtime_error("Failed to read trace_params.csv");
@@ -114,13 +113,13 @@ namespace interface {
 
         if(!QUIET) std::cout << "Network loaded from trace params model definition" << std::endl;
 
-        return core::Network<T>(this->name,layers);
+        return base::Network<T>(this->name,layers);
     }
 
     template <typename T>
-    core::Network<T> NetReader<T>::read_network_conv_params() {
+    base::Network<T> NetReader<T>::read_network_conv_params() {
 
-        std::vector<core::Layer<T>> layers;
+        std::vector<base::Layer<T>> layers;
 
         check_path("models/" + this->name);
         std::string path = "models/" + this->name + "/conv_params.csv";
@@ -148,7 +147,7 @@ namespace interface {
                 else
                     throw std::runtime_error("Failed to read conv_params.csv");
 
-                auto layer = core::Layer<T>(type,words[1],"",stoi(words[3]), stoi(words[5]), stoi(words[6]),
+                auto layer = base::Layer<T>(type,words[1],"",stoi(words[3]), stoi(words[5]), stoi(words[6]),
                         stoi(words[8]), stoi(words[9]));
                 layer.setAct_precision(stoi(words[10]),stoi(words[11]),(stoi(words[10])-1)-stoi(words[11]));
                 layer.setWgt_precision(16,0,15);
@@ -159,12 +158,12 @@ namespace interface {
 
         if(!QUIET) std::cout << "Network loaded from convolutional params model definition" << std::endl;
 
-        return core::Network<T>(this->name,layers);
+        return base::Network<T>(this->name,layers);
     }
 
     template <typename T>
-    core::Layer<T> NetReader<T>::read_layer_proto(const protobuf::Network_Layer &layer_proto) {
-        core::Layer<T> layer = core::Layer<T>(layer_proto.type(),layer_proto.name(),layer_proto.input(),
+    base::Layer<T> NetReader<T>::read_layer_proto(const protobuf::Network_Layer &layer_proto) {
+        base::Layer<T> layer = base::Layer<T>(layer_proto.type(),layer_proto.name(),layer_proto.input(),
         layer_proto.nn(),layer_proto.kx(),layer_proto.ky(),layer_proto.stride(),layer_proto.padding());
         layer.setAct_precision(layer_proto.act_prec(),layer_proto.act_mag(),layer_proto.act_frac());
         layer.setWgt_precision(layer_proto.wgt_prec(),layer_proto.wgt_mag(),layer_proto.wgt_frac());
@@ -192,10 +191,10 @@ namespace interface {
             for (const auto value : layer_proto.act_data_fxd())
                 activations_data.push_back(value);
 
-            cnpy::Array<T> weights; weights.set_values(weights_data,weights_shape);
+            base::Array<T> weights; weights.set_values(weights_data,weights_shape);
             layer.setWeights(weights);
 
-            cnpy::Array<T> activations; activations.set_values(activations_data,activations_shape);
+            base::Array<T> activations; activations.set_values(activations_data,activations_shape);
             layer.setActivations(activations);
 
         }
@@ -204,10 +203,10 @@ namespace interface {
     }
 
     template <typename T>
-    core::Network<T> NetReader<T>::read_network_protobuf() {
+    base::Network<T> NetReader<T>::read_network_protobuf() {
         GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-        std::vector<core::Layer<T>> layers;
+        std::vector<base::Layer<T>> layers;
         protobuf::Network network_proto;
 
         {
@@ -221,61 +220,20 @@ namespace interface {
             }
         }
 
-        std::string name = network_proto.name();
-
         for(const protobuf::Network_Layer &layer_proto : network_proto.layers())
             layers.emplace_back(read_layer_proto(layer_proto));
 
         if(!QUIET) std::cout << "Network and traces loaded from protobuf model" << std::endl;
 
-        return core::Network<T>(this->name,layers);
+        return base::Network<T>(this->name,layers);
     }
 
     template <typename T>
-    std::vector<schedule> NetReader<T>::read_schedule_protobuf(const std::string &schedule_type) {
-        GOOGLE_PROTOBUF_VERIFY_VERSION;
-
-        protobuf::Schedule network_schedule_proto;
-
-        {
-            // Read the existing network.
-            check_path("net_traces/" + this->name);
-            std::string path = "net_traces/" + this->name + "/schedule_" + schedule_type + ".proto";
-            check_path(path);
-            std::fstream input(path, std::ios::in | std::ios::binary);
-            if (!network_schedule_proto.ParseFromIstream(&input)) {
-                throw std::runtime_error("Failed to read protobuf");
-            }
-        }
-
-        std::vector<schedule> network_schedule;
-
-        for(const auto &schedule_layer_proto : network_schedule_proto.layers()) {
-            schedule dense_schedule;
-            for(const auto &schedule_time_proto : schedule_layer_proto.times()) {
-                time_schedule window_schedule;
-                for(const auto &schedule_tuple_proto : schedule_time_proto.tuples()) {
-                    schedule_tuple dense_schedule_tuple = std::make_tuple(schedule_tuple_proto.channel(),
-                            schedule_tuple_proto.kernel_x(), schedule_tuple_proto.kernel_y(),
-                            schedule_tuple_proto.wgt_bits());
-                    window_schedule.push_back(dense_schedule_tuple);
-                }
-                dense_schedule.push_back(window_schedule);
-            }
-            network_schedule.push_back(dense_schedule);
-        }
-
-        if(!QUIET) std::cout << "Scheduled loaded from protobuf file" << std::endl;
-
-        return network_schedule;
-    }
-
-    template <typename T>
-    void NetReader<T>::read_weights_npy(core::Network<T> &network) {
+    void NetReader<T>::read_weights_npy(base::Network<T> &network) {
         check_path("net_traces/" + this->name);
-        for(core::Layer<T> &layer : network.updateLayers()) {
+        for(base::Layer<T> &layer : network.updateLayers()) {
             std::string file = "/wgt-" + layer.getName() + ".npy" ;
-            cnpy::Array<T> weights; weights.set_values("net_traces/" + this->name + file);
+            base::Array<T> weights; weights.set_values("net_traces/" + this->name + file);
             layer.setWeights(weights);
         }
 
@@ -284,11 +242,11 @@ namespace interface {
     }
 
     template <typename T>
-    void NetReader<T>::read_activations_npy(core::Network<T> &network) {
+    void NetReader<T>::read_activations_npy(base::Network<T> &network) {
         check_path("net_traces/" + this->name);
-        for(core::Layer<T> &layer : network.updateLayers()) {
+        for(base::Layer<T> &layer : network.updateLayers()) {
             std::string file = "/act-" + layer.getName() + "-" + std::to_string(batch) + ".npy";
-            cnpy::Array<T> activations; activations.set_values("net_traces/" + this->name + file);
+            base::Array<T> activations; activations.set_values("net_traces/" + this->name + file);
             layer.setActivations(activations);
         }
 
@@ -297,17 +255,30 @@ namespace interface {
     }
 
     template <typename T>
-    void NetReader<T>::read_precision(core::Network<T> &network) {
+    void NetReader<T>::read_precision(base::Network<T> &network) {
 
         if(network.isTensorflow_8b()) {
             int i = 0;
-            for(core::Layer<T> &layer : network.updateLayers()) {
+            for(base::Layer<T> &layer : network.updateLayers()) {
                 layer.setAct_precision(8,7,0);
                 layer.setWgt_precision(8,7,0);
                 i++;
             }
 
             if(!QUIET) std::cout << "Using generic precisions for Tensorflow 8b quantization" << std::endl;
+
+            return;
+        }
+
+        if(network.isIntelINQ()) {
+            int i = 0;
+            for(base::Layer<T> &layer : network.updateLayers()) {
+                layer.setAct_precision(16,15,0);
+                layer.setWgt_precision(8,7,0);
+                i++;
+            }
+
+            if(!QUIET) std::cout << "Using generic precisions for Intel INQ quantization" << std::endl;
 
             return;
         }
@@ -348,9 +319,9 @@ namespace interface {
             myfile.close();
 
             int i = 0;
-            for(core::Layer<T> &layer : network.updateLayers()) {
-                layer.setAct_precision(act_mag[i] + act_frac[i],act_mag[i] - 1,act_frac[i]);
-                layer.setWgt_precision(wgt_mag[i] + wgt_frac[i],wgt_mag[i] - 1,wgt_frac[i]);
+            for(base::Layer<T> &layer : network.updateLayers()) {
+                layer.setAct_precision(act_mag[i] + act_frac[i], act_mag[i] - 1, act_frac[i]);
+                layer.setWgt_precision(wgt_mag[i] + wgt_frac[i], wgt_mag[i] - 1, wgt_frac[i]);
                 i++;
             }
 
@@ -359,9 +330,14 @@ namespace interface {
         } else {
             // Generic precision
             int i = 0;
-            for(core::Layer<T> &layer : network.updateLayers()) {
-                layer.setAct_precision(16,13,2);
-                layer.setWgt_precision(16,0,15);
+            for(base::Layer<T> &layer : network.updateLayers()) {
+                if (network.getNetwork_bits() == 8) {
+                    layer.setAct_precision(8,6,1);
+                    layer.setWgt_precision(8,0,7);
+                } else {
+                    layer.setAct_precision(16,13,2);
+                    layer.setWgt_precision(16,0,15);
+                }
                 i++;
             }
 

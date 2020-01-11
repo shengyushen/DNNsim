@@ -5,6 +5,7 @@
 #include <vector>
 #include <queue>
 #include <list>
+#include <map>
 #include <unordered_set>
 #include <string>
 #include <cmath>
@@ -14,9 +15,10 @@
 #include <fcntl.h>
 #include <sstream>
 #include <bitset>
-#include <chrono>
 #include <algorithm>
 #include <numeric>
+#include <unistd.h>
+#include <math.h>
 
 // Don't commit changes in global variables
 // If want to launch program uncomment DEBUG, and comment OPENMP
