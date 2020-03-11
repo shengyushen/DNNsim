@@ -13,6 +13,8 @@
 *   Weights, and Inputs activations in a *.npy file
 *   Full network in a Google protobuf format file
 
+*   Some example models can be found under: http://www.eecg.toronto.edu/~edoisak/networks/  
+
 ## Compilation:
 Command line compilation. First we need to configure the project:
     
