@@ -137,8 +137,9 @@ int main(int argc, char *argv[]) {
                         core::BitTactical<float> scheduler(experiment.lookahead_h, experiment.lookaside_d,
                                 experiment.search_shape.c_str()[0]);
 
-                        std::shared_ptr<core::Dataflow<float>> dataflow =
-                                std::make_shared<core::WindowFirstOutS<float>>(scheduler);
+                        std::shared_ptr<core::Dataflow<float>> dataflow;
+                        if (experiment.dataflow == "WindowFirstOutS")
+                            dataflow = std::make_shared<core::WindowFirstOutS<float>>(scheduler);
 
                         core::Simulator<float> DNNsim(experiment.n_lanes, experiment.n_columns, experiment.n_rows,
                                 experiment.n_tiles, experiment.bits_pe, FAST_MODE, QUIET, CHECK);
@@ -174,8 +175,9 @@ int main(int argc, char *argv[]) {
                         core::BitTactical<uint16_t> scheduler(experiment.lookahead_h, experiment.lookaside_d,
                                 experiment.search_shape.c_str()[0]);
 
-                        std::shared_ptr<core::Dataflow<uint16_t>> dataflow =
-                                std::make_shared<core::WindowFirstOutS<uint16_t>>(scheduler);
+                        std::shared_ptr<core::Dataflow<uint16_t>> dataflow;
+                        if (experiment.dataflow == "WindowFirstOutS")
+                            dataflow = std::make_shared<core::WindowFirstOutS<uint16_t>>(scheduler);
 
                         core::Simulator<uint16_t> DNNsim(experiment.n_lanes, experiment.n_columns, experiment.n_rows,
                                 experiment.n_tiles, experiment.bits_pe, FAST_MODE, QUIET, CHECK);

@@ -5,6 +5,7 @@ simulate {
 	experiment {
         architecture: "Loom"
         task: "Cycles"
+        dataflow: "WindowFirstOutS"
         n_lanes: 16
         n_columns: 16
         n_rows: 16

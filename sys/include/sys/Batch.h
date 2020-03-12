@@ -27,6 +27,9 @@ namespace sys {
                 /** Task name */
                 std::string task = "";
 
+                /** Task name */
+                std::string dataflow = "";
+
                 /** Number of lanes */
                 uint32_t n_lanes = 0;
 

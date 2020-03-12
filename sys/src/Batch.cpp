@@ -104,8 +104,7 @@ namespace sys {
             // Sanity check
             const auto &task = experiment_proto.task();
             if(task  != "Cycles" && task != "Potentials")
-                throw std::runtime_error("Task on network " + simulate.network +
-                                         " in Fixed16 must be <Cycles|Potentials>.");
+                throw std::runtime_error("Task on network " + simulate.network + " must be <Cycles|Potentials>.");
 
             if (task == "Potentials" && experiment.diffy)
                 throw std::runtime_error("Diffy simulation on network " + simulate.network +
@@ -132,8 +131,13 @@ namespace sys {
                 throw std::runtime_error("Both Tactical and Diffy simulation on network " + simulate.network +
                                          " are not allowed");
 
+            const auto &dataflow = experiment_proto.dataflow();
+            if (task == "Cycles" && arch != "SCNN" && dataflow != "WindowFirstOutS")
+                throw std::runtime_error("Dataflow on network " + simulate.network + " must be <WindowFirstOutS>.");
+
             experiment.architecture = experiment_proto.architecture();
             experiment.task = experiment_proto.task();
+            experiment.dataflow = experiment_proto.dataflow();
             simulate.experiments.emplace_back(experiment);
         }
 

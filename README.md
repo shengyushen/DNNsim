@@ -117,4 +117,5 @@ Experiments contain the following parameters.
 |:---:|:---:|:---:|:---:|:---:|
 | architecture | string | Name of the architecture to simulate | Allowed architectures | N/A |
 | task | string | Name of the architecture to simulate | Allowed tasks | N/A |
+| dataflow | string | Name of the dataflow to simulate | Allowed dataflow | N/A |
 | | | **Architecture Parameters** | | |
