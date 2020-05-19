@@ -76,11 +76,6 @@ namespace core {
                             auto start_time = this->max_buffer_time * this->group;
                             while (this->time[t] < this->max_buffer_time) {
 
-                                this->act_buff_reads++;
-                                this->wgt_buff_reads++;
-                                this->acc_updates += (this->fc || this->lstm) ? this->filters[t].size() :
-                                        this->windows.size() * this->filters[t].size();
-
                                 if (this->schedule) {
 
                                     // Skip lines of zeroes
@@ -94,6 +89,11 @@ namespace core {
                                     this->skip[t] = 0;
 
                                 }
+                                
+				this->act_buff_reads++;
+                                this->wgt_buff_reads++;
+                                this->acc_updates += (this->fc || this->lstm) ? this->filters[t].size() :
+                                        this->windows.size() * this->filters[t].size();
 
                                 auto num_act_rows = 1;
                                 if (this->schedule) num_act_rows += this->scheduler.getLookaheadH();
