@@ -76,7 +76,9 @@ namespace core {
                             auto start_time = this->max_buffer_time * this->group;
                             while (this->time[t] < this->max_buffer_time) {
 
-                                if (this->schedule) {
+				this->act_buff_reads++;
+                                
+				if (this->schedule) {
 
                                     // Skip lines of zeroes
                                     bool zero_line = this->scheduler.check_zero_line(this->weight_buffer
@@ -90,7 +92,6 @@ namespace core {
 
                                 }
                                 
-				this->act_buff_reads++;
                                 this->wgt_buff_reads++;
                                 this->acc_updates += (this->fc || this->lstm) ? this->filters[t].size() :
                                         this->windows.size() * this->filters[t].size();

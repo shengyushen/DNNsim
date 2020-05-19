@@ -136,7 +136,7 @@ namespace core {
         auto compute_cycles = stats.register_uint_t("compute_cycles", 0, sys::AverageTotal);
         auto compute_stall_cycles = stats.register_uint_t("compute stall cycles", 0, sys::AverageTotal);
         auto scheduled_pe = stats.register_uint_t("scheduled PEs", 0, sys::AverageTotal);
-        auto idle_pe = stats.register_uint_t("idle PEs", 0, sys::AverageTotal);
+        //auto idle_pe = stats.register_uint_t("idle PEs", 0, sys::AverageTotal);
 
         // Dataflow stats
         auto act_buff_reads = stats.register_uint_t("activation buffer reads", 0, sys::AverageTotal);
@@ -254,7 +254,7 @@ namespace core {
                 compute_cycles->value[layer_it][image] = arch->getCycles();
                 compute_stall_cycles->value[layer_it][image] = arch->getStallCycles();
                 scheduled_pe->value[layer_it][image] = arch->getScheduledPe();
-                idle_pe->value[layer_it][image] = arch->getIdlePe();
+                //idle_pe->value[layer_it][image] = arch->getIdlePe();
 
                 act_buff_reads->value[layer_it][image] = dataflow->getActBuffReads();
                 wgt_buff_reads->value[layer_it][image] = dataflow->getWgtBuffReads();
