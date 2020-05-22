@@ -120,17 +120,24 @@ int main(int argc, char *argv[]) {
         bool FAST_MODE = options.count("fast_mode") == 0 ? false : options["fast_mode"].as<bool>();
         bool CHECK = options.count("check_values") == 0 ? false : options["check_values"].as<bool>();
         std::string batch_path = options["batch"].as<std::string>();
+        // SSY batch_path is just tactical_evaluation following command name below
+        // ../DNNsim/DNNsim tactical_evaluation --fast_mode --check_values
+        std::cout << " batch_path " << batch_path <<std::endl;
         sys::Batch batch = sys::Batch(batch_path);
+        // this is where error pop up
         batch.read_batch();
 
         for(const auto &simulate : batch.getSimulations()) {
-
+            //SSY simulate is just the simulate section in batch file
+            //SSY network is such as eyeriss_alexnet and eyeriss_googlenet
             if(!QUIET) std::cout << "Network: " << simulate.network << std::endl;
 
             try {
-
+                //SSY data_type is such as Fixed16
+                std::cout << " simulate.data_type " << simulate.data_type <<std::endl;
 				// Inference traces
                 if (simulate.data_type == "Float32") {
+                    //SSY direcly read Float32, while Fixed16 need to call fixed_point
                     auto network = read<float>(simulate, QUIET);
                     for(const auto &experiment : simulate.experiments) {
 
@@ -163,22 +170,38 @@ int main(int argc, char *argv[]) {
                     }
 
                 } else if (simulate.data_type == "Fixed16") {
+                    std::cout << " usign Fixed16 " <<std::endl;
                     base::Network<uint16_t> network;
                     {
                         base::Network<float> tmp_network;
+                        //SSY see above
                         tmp_network = read<float>(simulate, QUIET);
+                        // SSY need to call fixed_point
                         network = tmp_network.fixed_point();
                     }
 
                     for (const auto &experiment : simulate.experiments) {
-
+                        //SSY core/include/core/BitTactical.h
+                        // core/src/BitTactical.cpp
+                        // lookahead_h 2
+                        // lookaside_d 5
+                        // search_shape T
                         core::BitTactical<uint16_t> scheduler(experiment.lookahead_h, experiment.lookaside_d,
                                 experiment.search_shape.c_str()[0]);
 
                         std::shared_ptr<core::Dataflow<uint16_t>> dataflow;
-                        if (experiment.dataflow == "WindowFirstOutS")
+                        std::cout << " experiment.dataflow " << experiment.dataflow <<std::endl;
+                        if (experiment.dataflow == "WindowFirstOutS") {
+                            //SSY core/include/core/WindowFirstOutS.h just embedding scheduler into dataflow
                             dataflow = std::make_shared<core::WindowFirstOutS<uint16_t>>(scheduler);
-
+                        }
+                        //SSY n_lanes 16 
+                        // n_columns 1
+                        // n_rows 16
+                        // bits_pe 16
+                        // SSY core/include/core/Simulator.h
+                        // core/src/Simulator.cpp
+                        // FAST_MODE only sim one img
                         core::Simulator<uint16_t> DNNsim(experiment.n_lanes, experiment.n_columns, experiment.n_rows,
                                 experiment.n_tiles, experiment.bits_pe, FAST_MODE, QUIET, CHECK);
 
@@ -192,9 +215,12 @@ int main(int argc, char *argv[]) {
                             else if (experiment.task == "Potentials") DNNsim.potentials(network, arch);
 
                         } else if (experiment.architecture == "DaDianNao") {
+                            // SSY we are using DaDianNao with tactical option
+                            // core/include/core/DaDianNao.h
                             std::shared_ptr<core::Architecture<uint16_t>> arch =
                                     std::make_shared<core::DaDianNao<uint16_t>>(experiment.tactical);
-
+                            //SSY with additional dataflow option
+                            // core/src/Simulator.cpp
                             if (experiment.task == "Cycles") DNNsim.run(network, arch, dataflow);
                             else if (experiment.task == "Potentials") DNNsim.potentials(network, arch);
 

@@ -802,6 +802,7 @@ namespace base {
 
     template <typename T>
     void Array<T>::get_image(uint64_t image) {
+        //SSY NCHW format
         auto images = this->shape[0];
         auto act_channels = this->shape[1];
         auto Nx = this->shape[2];
@@ -811,7 +812,7 @@ namespace base {
             throw std::runtime_error("Image required is out of the scope");
 
         auto tmp_data4D = Array4D(1, Array3D(act_channels, Array2D(Nx, Array1D(Ny, 0))));
-
+        //SSY copy the data from this to tmp_data4D
         for (int k = 0; k < act_channels; k++) {
             for (int i = 0; i < Nx; i++) {
                 for(int j = 0; j < Ny; j++) {
@@ -821,7 +822,7 @@ namespace base {
         }
 
         this->data4D.clear();
-        this->data4D = tmp_data4D;
+        this->data4D = tmp_data4D; //SSY copy it back to data4D? what is that for?
         this->shape[0] = 1;
     }
 

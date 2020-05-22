@@ -132,8 +132,10 @@ namespace sys {
                                          " are not allowed");
 
             const auto &dataflow = experiment_proto.dataflow();
-            if (task == "Cycles" && arch != "SCNN" && dataflow != "WindowFirstOutS")
+            if (task == "Cycles" && arch != "SCNN" && dataflow != "WindowFirstOutS") {
+                std::cout << "task "<< task << " dataflow "<<dataflow <<std::endl;
                 throw std::runtime_error("Dataflow on network " + simulate.network + " must be <WindowFirstOutS>.");
+            }
 
             experiment.architecture = experiment_proto.architecture();
             experiment.task = experiment_proto.task();

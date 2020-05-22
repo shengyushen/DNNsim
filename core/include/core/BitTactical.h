@@ -40,7 +40,8 @@ namespace core {
                 LOOKASIDE_D(_LOOKASIDE_D), SEARCH_SHAPE(_SEARCH_SHAPE), N_LANES(0) {
 
             if (SEARCH_SHAPE == 'L') {
-
+                //SSY appending (1,0) (2,0) (1,-1) (1,-2) (1,-3) (1,-4) (1,-5)
+                // but we dont use L
                 for (int h = 1; h <= LOOKAHEAD_H; ++h)
                     SEARCH_MAP.emplace_back(std::make_tuple(h,0));
 
@@ -48,7 +49,8 @@ namespace core {
                     SEARCH_MAP.emplace_back(std::make_tuple(1,-d));
 
             } else if (SEARCH_SHAPE == 'T') {
-
+                //SSY we are using T
+                //SSY appending (1,0) (2,0) 
                 for (int h = 1; h <= LOOKAHEAD_H; ++h)
                     SEARCH_MAP.emplace_back(std::make_tuple(h,0));
 
@@ -56,6 +58,8 @@ namespace core {
                 int d = 1;
                 bool sign = false;
                 for (int i = 0; i < LOOKASIDE_D; ++i) {
+                    std::cout << " h " <<h << " d " << d <<std::endl;
+                    //SSY (1,1) (1,-1) (2,2) (2,-2) (1,3)
                     SEARCH_MAP.emplace_back(std::make_tuple(h,d));
                     d *= -1;
                     if (sign) {
@@ -70,6 +74,10 @@ namespace core {
             }
 
             std::sort(SEARCH_MAP.begin(), SEARCH_MAP.end());
+            for (auto const & t : SEARCH_MAP) {
+                std::cout << std::get<0>(t) << " " << std::get<1>(t) <<std::endl;
+            }
+
 
         }
 
